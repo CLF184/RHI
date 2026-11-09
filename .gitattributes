@@ -1,0 +1,3 @@
+# Patch files are applied byte-for-byte by git apply. Autocrlf/CRLF
+# conversion makes them fail, so opt them out of all EOL handling.
+patches/*.patch -text
