@@ -1039,14 +1039,14 @@ public sealed partial class MainWindow
                 var name = nameBox.Text?.Trim() ?? "";
                 if (string.IsNullOrEmpty(name))
                 {
-                    errorText.Text = "Please enter a filter name.";
+                    LocalizationService.SetText(errorText, "Please enter a filter name.");
                     errorText.Visibility = Visibility.Visible;
                     args.Cancel = true;
                     return;
                 }
                 if (ViewModel.Filter.CustomFilterNameExists(name))
                 {
-                    errorText.Text = $"A filter named \"{name}\" already exists.";
+                    LocalizationService.SetText(errorText, $"A filter named \"{name}\" already exists.");
                     errorText.Visibility = Visibility.Visible;
                     args.Cancel = true;
                     return;

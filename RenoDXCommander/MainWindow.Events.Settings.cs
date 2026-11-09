@@ -118,6 +118,9 @@ public sealed partial class MainWindow
     private void OpenDownloadsFolder_Click(object sender, RoutedEventArgs e)
         => _settingsHandler.OpenDownloadsFolder_Click(sender, e);
 
+    private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _settingsHandler.LanguageCombo_SelectionChanged(sender, e);
+
     private void CustomShadersCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => _settingsHandler.CustomShadersCombo_SelectionChanged(sender, e);
 

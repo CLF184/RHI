@@ -311,7 +311,7 @@ public partial class DetailPanelBuilder
         ApplyFavouriteButtonStyle(_window.DetailFavBtn, _window.DetailFavIcon, card.IsFavourite);
 
         _window.DetailHideBtn.Tag = card;
-        _window.DetailHideIcon.Text = card.IsHidden ? "Show" : "Hide";
+        LocalizationService.SetText(_window.DetailHideIcon, card.IsHidden ? "Show" : "Hide");
         ToolTipService.SetToolTip(_window.DetailHideBtn, card.IsHidden
             ? "Show this game in the game list again."
             : "Hide this game from the sidebar (find it again in the Hidden filter)");
@@ -598,7 +598,7 @@ public partial class DetailPanelBuilder
     /// </summary>
     internal static void ApplyFavouriteButtonStyle(Button btn, TextBlock label, bool isFavourite)
     {
-        label.Text = isFavourite ? "Favourited" : "Favourite";
+        LocalizationService.SetText(label, isFavourite ? "Favourited" : "Favourite");
         label.Foreground = UIFactory.Brush(isFavourite ? ResourceKeys.AccentAmberBrush : ResourceKeys.ChipTextBrush);
         btn.BorderBrush = UIFactory.Brush(ResourceKeys.BorderSubtleBrush);
         ToolTipService.SetToolTip(btn, isFavourite

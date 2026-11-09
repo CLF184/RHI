@@ -48,9 +48,10 @@ public sealed partial class MainWindow
         try
         {
             var text = GetStatusBarText(DateTime.UtcNow);
-            StatusBarText.Text = text;
+            LocalizationService.SetText(StatusBarText, text);
+            var displayed = StatusBarText.Text;
             // The text trims on narrow windows; the tooltip shows it in full
-            Microsoft.UI.Xaml.Controls.ToolTipService.SetToolTip(StatusBarText, string.IsNullOrEmpty(text) ? null : text);
+            Microsoft.UI.Xaml.Controls.ToolTipService.SetToolTip(StatusBarText, string.IsNullOrEmpty(displayed) ? null : displayed);
         }
         catch (Exception ex) { CrashReporter.Log($"[MainWindow.RefreshStatusBar] {ex.Message}"); }
     }

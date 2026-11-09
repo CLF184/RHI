@@ -13,18 +13,18 @@ public partial class GameCardViewModel
     {
         get
         {
-            if (IsInstalling) return "Installing...";
-            if (IsRtxHdrEnabled) return "Configure RTX HDR";
-            if (IsAutoHdrEnabled) return "Configure Auto HDR";
+            if (IsInstalling) return L("Installing...");
+            if (IsRtxHdrEnabled) return L("Configure RTX HDR");
+            if (IsAutoHdrEnabled) return L("Configure Auto HDR");
             if (!IsRsInstalled && !ExcludeFromUpdateAllReShade && Mod?.SnapshotUrl != null && !IsExternalOnly)
-                return "⚠  ReShade required";
+                return L("⚠  ReShade required");
             // No mod available and nothing manually installed
             if (Mod?.SnapshotUrl == null && !IsExternalOnly && string.IsNullOrEmpty(InstalledAddonFileName))
-                return "No RenoDX mod available";
+                return L("No RenoDX mod available");
             var name = UseUeExtended ? "UE-Extended" : "RenoDX";
-            return Status == GameStatus.UpdateAvailable ? $"⬆  Update {name}"
-                 : Status == GameStatus.Installed       ? $"↺  Reinstall {name}"
-                 : $"⬇  Install {name}";
+            return Status == GameStatus.UpdateAvailable ? L($"⬆  Update {name}")
+                 : Status == GameStatus.Installed       ? L($"↺  Reinstall {name}")
+                 : L($"⬇  Install {name}");
         }
     }
 
@@ -103,11 +103,11 @@ public partial class GameCardViewModel
     public string ChevronBorderThickness => ReinstallRowVisibility == Visibility.Visible ? "1,1,0,1" : "1";
 
     // ── Component table: RDX short status text + short action labels ─────────────
-    public string RdxStatusText => IsInstalling ? "Installing…"
-        : Status == GameStatus.UpdateAvailable ? (RdxInstalledVersion ?? "Update")
-        : Status == GameStatus.Installed       ? (RdxInstalledVersion ?? "Installed")
-        : HdrToggleName != null                ? $"{HdrToggleName} on"
-        : Mod?.SnapshotUrl != null             ? "Ready" : "—";
+    public string RdxStatusText => IsInstalling ? L("Installing…")
+        : Status == GameStatus.UpdateAvailable ? (RdxInstalledVersion ?? L("Update"))
+        : Status == GameStatus.Installed       ? (RdxInstalledVersion ?? L("Installed"))
+        : HdrToggleName != null                ? L($"{HdrToggleName} on")
+        : Mod?.SnapshotUrl != null             ? L("Ready") : "—";
     public string RdxStatusColor => IsInstalling ? "#D4A856"
         : Status == GameStatus.UpdateAvailable ? "#B898E8"
         : Status == GameStatus.Installed       ? "#5ECB7D"

@@ -41,6 +41,7 @@
   <ItemGroup>
     <Content Include="icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="7z.exe">
@@ -185,7 +186,7 @@
        Not a PackageReference (that crashes WinAppSDK XAML compiler on publish).
        Copied to the output directory as a loose file alongside the EXE. -->
   <ItemGroup>
-    <None Include="$(UserProfile)\.nuget\packages\microsoft.diagnostics.runtime\3.1.512801\lib\net6.0\Microsoft.Diagnostics.Runtime.dll" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Microsoft.Diagnostics.Runtime.dll" />
+    <None Include="$(UserProfile)\.nuget\packages\microsoft.diagnostics.runtime\3.1.512801\lib\net6.0\Microsoft.Diagnostics.Runtime.dll" Condition="Exists('$(UserProfile)\.nuget\packages\microsoft.diagnostics.runtime\3.1.512801\lib\net6.0\Microsoft.Diagnostics.Runtime.dll')" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Link="Microsoft.Diagnostics.Runtime.dll" />
   </ItemGroup>
 
 
@@ -201,4 +202,11 @@
     <PackageReference Include="SharpCompress" Version="0.37.2" />
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
+
+  <Target Name="CopyWindowIconToPublishDirectory" AfterTargets="Publish">
+    <Copy
+      SourceFiles="$(MSBuildProjectDirectory)\icon.ico"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

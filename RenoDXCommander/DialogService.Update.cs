@@ -76,6 +76,14 @@ public partial class DialogService
 
     public async Task ShowUpdateDialogAsync(UpdateInfo updateInfo)
     {
+        // zh-CN fork: releases are portable zips, not installers. Point the user
+        // at the Chinese release page instead of downloading/running an installer.
+        if (updateInfo.IsPortableZip && !string.IsNullOrEmpty(updateInfo.ReleasePageUrl))
+        {
+            await ShowPortableUpdateDialogAsync(updateInfo);
+            return;
+        }
+
         var dlg = new ContentDialog
         {
             Title   = "🔄 Update Available",
@@ -108,6 +116,54 @@ public partial class DialogService
 
         // User chose "Update Now" — show downloading dialog
         await DownloadAndInstallUpdateAsync(updateInfo);
+    }
+
+    private async Task ShowPortableUpdateDialogAsync(UpdateInfo updateInfo)
+    {
+        var versions =
+            $"{LocalizationService.Text("Installed:")} v{updateInfo.CurrentVersion}\n" +
+            $"{LocalizationService.Text("Available:")} v{updateInfo.DisplayVersion ?? updateInfo.RemoteVersion.ToString()}";
+
+        var dlg = new ContentDialog
+        {
+            Title = "🔄 Update Available",
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground   = Brush(ResourceKeys.TextSecondaryBrush),
+                        FontSize     = 14,
+                        Text         = LocalizationService.Text("A new version of RHI is available!") + "\n\n" +
+                                       versions + "\n\n" +
+                                       LocalizationService.Text("This is the portable Simplified Chinese build. Download the new package, exit RHI, and overwrite the install folder. Your settings and game list are kept."),
+                    },
+                },
+            },
+            PrimaryButtonText = LocalizationService.Text("Open Download Page"),
+            CloseButtonText   = LocalizationService.Text("Later"),
+            XamlRoot          = _window.Content.XamlRoot,
+            Background        = Brush(ResourceKeys.SurfaceRaisedBrush),
+            RequestedTheme    = ElementTheme.Dark,
+        };
+
+        var result = await DialogService.ShowSafeAsync(dlg);
+        if (result != ContentDialogResult.Primary) return;
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(updateInfo.ReleasePageUrl)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            CrashReporter.Log($"[DialogService.ShowPortableUpdateDialogAsync] Failed to open {updateInfo.ReleasePageUrl} — {ex.Message}");
+        }
     }
 
     public async Task DownloadAndInstallUpdateAsync(UpdateInfo updateInfo)
@@ -150,7 +206,7 @@ public partial class DialogService
             _dispatcherQueue.TryEnqueue(() =>
             {
                 if (_window.IsShuttingDown) return;
-                progressText.Text = p.msg;
+                LocalizationService.SetText(progressText, p.msg);
                 progressBar.Value = p.pct;
             });
         });
@@ -162,9 +218,9 @@ public partial class DialogService
         if (string.IsNullOrEmpty(installerPath))
         {
             // Download failed — update dialog to show error with a Close button
-            progressText.Text = "❌ Download failed. Please try again later or download manually from GitHub.";
+            progressText.Text = LocalizationService.Text("❌ Download failed. Please try again later or download manually from GitHub.");
             progressBar.Value = 0;
-            downloadDlg.CloseButtonText = "Close";
+            downloadDlg.CloseButtonText = LocalizationService.Text("Close");
             await progressSession.Completion;
             return;
         }

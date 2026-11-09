@@ -233,11 +233,12 @@ public partial class SettingsHandler
                 Text = $"{label}: ",
                 Foreground = UIFactory.Brush(ResourceKeys.SettingsLabelBrush),
             });
-            tb.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            var stateRun = new Microsoft.UI.Xaml.Documents.Run
             {
-                Text = isOn ? "On" : "Off",
                 Foreground = UIFactory.Brush(isOn ? ResourceKeys.AccentGreenBrush : ResourceKeys.AccentRedBrush),
-            });
+            };
+            LocalizationService.SetText(stateRun, isOn ? "On" : "Off");
+            tb.Inlines.Add(stateRun);
             if (i < items.Length - 1)
             {
                 tb.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
