@@ -1,8 +1,8 @@
 > ## RHI 简体中文版（非官方分支）
 >
-> 本仓库是 [RankFTW/RHI](https://github.com/RankFTW/RHI) 的自动汉化分支：默认分支只放
-> `patches/zh-cn.patch` 和 CI。上游发布新 release 或推送 main 后，GitHub Actions 会把补丁
-> 3-way 应用到对应源码、构建并发布简体中文版。
+> 本仓库是 [RankFTW/RHI](https://github.com/RankFTW/RHI) 的自动汉化分支：分支基于上游源码，
+> 额外只增加 `patches/zh-cn.patch` 和 CI。上游发布新 release 或推送 main 后，GitHub Actions
+> 会把补丁 3-way 应用到对应源码、构建并发布简体中文版。
 >
 > - **下载**：[Releases](https://github.com/CLF184/RHI/releases) — 正式版 `zhCN-RHI-<版本>`，滚动开发版 `zhCN-latest`
 > - **全新安装**：整目录解压后运行 `RHI.exe`，不要只拷贝 exe

@@ -2,14 +2,14 @@
 
 本仓库是 [RankFTW/RHI](https://github.com/RankFTW/RHI) 的非官方简体中文分支。
 
-默认分支 **不保存复制过来的上游源码**，只包含：
+默认分支基于上游 **RHI-2.9.2**，上游源码保持原样；相对上游只额外增加：
 
 - `patches/zh-cn.patch`：全部汉化改动（约 4500 行 diff）
 - `.github/workflows/zh-cn-sync.yml` + `.github/scripts/`：自动同步、构建、发布
 - 说明文档与打包用的 `README-patch.md`
 
 CI 每次检出一个上游 commit，在该 commit 的干净源码上 `git apply --3way patches/zh-cn.patch`，
-再编译发布。这样仓库本身与上游的差异最小，也避免把上游历史复制进 fork。
+再编译发布。这样分支与上游的差异只有补丁和 CI，不把汉化后的源码再提交一遍。
 
 ## 下载
 
