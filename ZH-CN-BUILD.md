@@ -41,7 +41,8 @@ CI 每次检出一个上游 commit，在该 commit 的干净源码上 `git apply
 
 ## 自动化流程
 
-`.github/workflows/zh-cn-sync.yml` 每 15 分钟轮询上游（fork 收不到上游的 push/release 事件）：
+`.github/workflows/zh-cn-sync.yml` 每天北京时间 06:00（UTC 22:00）轮询一次上游
+（fork 收不到上游的 push/release 事件；需要立即出包时用 Actions 页面的 Run workflow 手动触发）：
 
 1. 读取 `RankFTW/RHI` 的最新 release tag 和 `main` HEAD。
 2. 新 release → 在**该 tag 的精确 commit**上应用补丁，构建并发布 `zhCN-RHI-<tag>`。
