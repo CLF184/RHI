@@ -43,6 +43,9 @@ concurrency:
 
 env:
   UPSTREAM_REPO: RankFTW/RHI
+  # gh must operate on this fork, not on the upstream remote added by the
+  # planning script (otherwise releases/issues are sent to RankFTW/RHI).
+  GH_REPO: ${{ github.repository }}
   PROJECT: RenoDXCommander/RenoDXCommander.csproj
   PATCH_FILE: patches/zh-cn.patch
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
