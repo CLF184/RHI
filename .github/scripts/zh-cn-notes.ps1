@@ -1,63 +1,44 @@
-﻿# Generates release-notes.md for the patch-based zh-CN sync workflow.
+﻿# Generates release-notes.md for a versioned zh-CN release.
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$Action,
     [Parameter(Mandatory = $true)][string]$Version,
-    [string]$VersionTag = '',
+    [Parameter(Mandatory = $true)][string]$VersionTag,
     [Parameter(Mandatory = $true)][string]$BuiltSha,
     [Parameter(Mandatory = $true)][string]$UpstreamSha,
-    [Parameter(Mandatory = $true)][string]$Download
+    [Parameter(Mandatory = $true)][string]$DownloadZip,
+    [Parameter(Mandatory = $true)][string]$DownloadSetup
 )
 
-if ($Action -eq 'release') {
-    $notes = @"
+$notes = @"
 ## RHI 简体中文版 $Version
 
 对应上游版本：$VersionTag（commit $UpstreamSha）
-源码：构建分支 zh-cn-build @ $BuiltSha（由 patches/zh-cn.patch 应用到上游源码构建）
+源码：构建分支 zh-cn-build @ $BuiltSha（由 patches/zh-cn.patch + patches/installer-zh-cn.patch 应用到上游 tag 构建）
 
 ### 下载
 
-$Download（整目录解压后运行 RHI.exe，不要只拷贝 exe）
+推荐安装器：$DownloadSetup
+与官方安装器使用同一个 AppId，可直接覆盖已安装的官方版；设置、已装模组和游戏列表都会保留。
 
-### 已经装了官方版？
+便携版：$DownloadZip
+整目录解压后运行 RHI.exe，不要只拷贝 exe。
 
-退出 RHI，把解压出的全部文件覆盖进安装目录（默认 C:\Program Files\RHI）。
-设置、已装模组和游戏列表都会保留。
+两个文件都有同名 .sha256 校验文件。
 
 ### 切换语言
 
 Settings → Language → 简体中文（默认跟随系统语言）。
 
-### 说明
+### 更新
 
-非官方简体中文构建，遵循上游 GPL-3.0 许可；除界面汉化外，代码与上游保持同步。
-应用内的「检查更新」指向本仓库的 Releases；有新版本时会打开此页面，下载后整目录覆盖即可。
-上游 2.9.x 新增的部分界面文案、安装器尚未汉化。
-"@
-} else {
-    $notes = @"
-## RHI 简体中文开发版 $Version
-
-跟随上游 main 最新提交 $UpstreamSha 的滚动构建，可能不稳定。
-上游发布正式 release 后，会另外生成对应的 zhCN-RHI-<版本> 包。
-
-源码：构建分支 zh-cn-build @ $BuiltSha（由 patches/zh-cn.patch 应用到上游源码构建）
-
-### 下载
-
-$Download（整目录解压后运行 RHI.exe，不要只拷贝 exe）
-
-### 切换语言
-
-Settings → Language → 简体中文（默认跟随系统语言）。
+应用内「检查更新」指向本仓库的 Releases；检测到新版本时会打开下载页面，下载安装器或便携包后更新。
 
 ### 说明
 
-非官方简体中文构建，遵循上游 GPL-3.0 许可。
+非官方简体中文构建，遵循上游 GPL-3.0 许可；除界面汉化和安装器语言外，代码与上游保持同步。
+上游 2.9.x 新增的部分界面文案尚未汉化。
 "@
-}
 
 $notes | Out-File -FilePath release-notes.md -Encoding utf8
-Write-Host "Wrote release-notes.md ($Action, $Version)"
+Write-Host "Wrote release-notes.md ($Version)"
 exit 0

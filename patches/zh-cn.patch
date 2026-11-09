@@ -639,7 +639,7 @@ index df3ef34acd3abc61ee45af1656fc5ef94a79e03e..1ec035ef4b5ba3949d5d553a259c11c2
          btn.BorderBrush = UIFactory.Brush(ResourceKeys.BorderSubtleBrush);
          ToolTipService.SetToolTip(btn, isFavourite
 diff --git a/RenoDXCommander/DialogService.Update.cs b/RenoDXCommander/DialogService.Update.cs
-index 5dcedaecea15d2ee95bfb86e7466bf328e2aee3b..3dc7ad7c63c1a0f206a104d4f3d19929ec0adb19 100644
+index 5dcedaecea15d2ee95bfb86e7466bf328e2aee3b..53ff7b2cb38271db8e5f28969278c0ef432139e9 100644
 --- a/RenoDXCommander/DialogService.Update.cs
 +++ b/RenoDXCommander/DialogService.Update.cs
 @@ -76,6 +76,14 @@ public partial class DialogService
@@ -682,7 +682,7 @@ index 5dcedaecea15d2ee95bfb86e7466bf328e2aee3b..3dc7ad7c63c1a0f206a104d4f3d19929
 +                        FontSize     = 14,
 +                        Text         = LocalizationService.Text("A new version of RHI is available!") + "\n\n" +
 +                                       versions + "\n\n" +
-+                                       LocalizationService.Text("This is the portable Simplified Chinese build. Download the new package, exit RHI, and overwrite the install folder. Your settings and game list are kept."),
++                                       LocalizationService.Text("Download the new Setup.exe to install over the existing version, or the portable zip to replace the install folder. Your settings and game list are kept."),
 +                    },
 +                },
 +            },
@@ -1251,7 +1251,7 @@ index 4d82a6a467e8d1185ab12aa796782fec9d33c0cf..ec6c5c2205750aa4e11bfe02fb00dd0e
  </Project>
 diff --git a/RenoDXCommander/Services/LocalizationService.cs b/RenoDXCommander/Services/LocalizationService.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..1b49b48be25ddea5cd1cd4e847f084a140b1904c
+index 0000000000000000000000000000000000000000..62dea70698867a46cc0b11292405d6de9e8e034c
 --- /dev/null
 +++ b/RenoDXCommander/Services/LocalizationService.cs
 @@ -0,0 +1,2245 @@
@@ -3497,7 +3497,7 @@ index 0000000000000000000000000000000000000000..1b49b48be25ddea5cd1cd4e847f084a1
 +        ["Open Download Page"] = "打开下载页面",
 +        ["Installed:"] = "已安装：",
 +        ["Available:"] = "可用版本：",
-+        ["This is the portable Simplified Chinese build. Download the new package, exit RHI, and overwrite the install folder. Your settings and game list are kept."] = "这是简体中文便携版。请下载新包，退出 RHI 后把全部文件覆盖进安装目录；设置和游戏列表都会保留。",
++        ["Download the new Setup.exe to install over the existing version, or the portable zip to replace the install folder. Your settings and game list are kept."] = "下载新的 Setup.exe 可直接覆盖安装现有版本；也可以下载便携 zip 替换安装目录。设置和游戏列表都会保留。",
 +    };
 +}
 diff --git a/RenoDXCommander/Services/UpdateService.cs b/RenoDXCommander/Services/UpdateService.cs

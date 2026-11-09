@@ -33,9 +33,10 @@ $fileList = if ($Conflicts.Count -gt 0) {
 }
 
 $body = @"
-## 汉化补丁应用冲突
+## 汉化/安装器补丁应用冲突
 
-自动构建把 ``patches/zh-cn.patch`` 应用到上游 ``$Target``（commit ``$TargetSha``）时发生冲突。
+自动构建把 ``patches/zh-cn.patch`` / ``patches/installer-zh-cn.patch`` 应用到上游
+``$Target``（commit ``$TargetSha``）时发生冲突。
 构建已中止，**没有推送源码分支，也没有创建 release**。
 
 ### 冲突文件
@@ -44,7 +45,7 @@ $fileList
 
 ### 处理方式
 
-在本地把补丁应用到该上游目标，解决冲突，然后重新生成补丁：
+在本地把两个补丁应用到该上游目标，解决冲突，然后重新生成补丁：
 
 ``````
 git clone https://github.com/$env:GITHUB_REPOSITORY.git
@@ -54,18 +55,20 @@ git fetch upstream --tags
 git worktree add --detach ../build $TargetSha
 cd ../build
 git apply --3way ../RHI/patches/zh-cn.patch
-# 编辑冲突文件：保留上游新逻辑 + 补回汉化调用
+git apply --3way ../RHI/patches/installer-zh-cn.patch
+# 编辑冲突文件：保留上游新逻辑 + 补回汉化/安装器调用
 git add -A
-git commit -m "zhCN: resolve patch against $Target"
+git commit -m "zhCN: resolve patches against $Target"
 git diff --no-color --full-index $TargetSha HEAD -- RenoDXCommander RenoDXCommander.Tests > ../RHI/patches/zh-cn.patch
+git diff --no-color --full-index $TargetSha HEAD -- "RHI Setup.iss" > ../RHI/patches/installer-zh-cn.patch
 ``````
 
 提交更新后的补丁并推送 ``zh-cn`` 分支，然后重新运行 workflow（或等下一次定时任务）：
 
 ``````
 cd ../RHI
-git add patches/zh-cn.patch
-git commit -m "zhCN: rebase localization patch onto $Target"
+git add patches/zh-cn.patch patches/installer-zh-cn.patch
+git commit -m "zhCN: rebase patches onto $Target"
 git push origin zh-cn
 ``````
 

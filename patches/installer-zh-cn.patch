@@ -1,0 +1,15 @@
+diff --git a/RHI Setup.iss b/RHI Setup.iss
+index bfb1ad99225658b5750686ff953726126a11c9ce..b19240b950046f4dec13a21675260e4aed3634a4 100644
+--- a/RHI Setup.iss	
++++ b/RHI Setup.iss	
+@@ -34,8 +34,10 @@ OutputBaseFilename=RHI-Setup
+ SetupIconFile={#PublishDir}\icon.ico
+ SolidCompression=yes
+ WizardStyle=modern dynamic
++ShowLanguageDialog=no
+ 
+ [Languages]
++Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+ Name: "english"; MessagesFile: "compiler:Default.isl"
+ 
+ [Tasks]

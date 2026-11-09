@@ -1,34 +1,33 @@
-name: Sync upstream and build zh-CN
+name: Build zh-CN release
 
-# Patch-based zh-CN fork.
+# Patch-based zh-CN fork. Upstream has no Windows build workflow, so this
+# builds the exact upstream release tag itself:
+#   1. resolve the latest upstream release tag,
+#   2. create a temp worktree at that tag,
+#   3. apply patches/zh-cn.patch + patches/installer-zh-cn.patch,
+#   4. build the app and the Chinese Inno Setup installer,
+#   5. push the patched source as zh-cn-build,
+#   6. create zhCN-RHI-<tag> with Setup.exe + portable zip.
 #
-# The zh-cn branch only contains patches/zh-cn.patch, this workflow, the
-# scripts and docs. Each run:
-#   1. resolves the latest upstream release tag / main commit,
-#   2. creates a temp worktree at that exact upstream commit,
-#   3. applies patches/zh-cn.patch with git apply --3way,
-#   4. builds, tests, packages, pushes the patched source as zh-cn-build,
-#   5. creates zhCN-RHI-<tag> (release) or updates zhCN-latest (dev).
-#
-# Upstream releases → exact-tag release. Upstream main commits → rolling dev
-# release. Forks do not receive upstream events, so this polls on a schedule.
+# Forks do not receive upstream release events, so this polls once a day.
 # Scheduled workflows must be enabled once in the fork, and Workflow
 # permissions must allow read/write.
 
 on:
   schedule:
-    # Once a day at 22:00 UTC = 06:00 Beijing time (next calendar day).
-    # GitHub may delay scheduled runs under load. Use the manual dispatch
-    # below for immediate builds.
-    - cron: '0 22 * * *'
+    # Every 3 days at 22:00 UTC = 06:00 Beijing time (next calendar day).
+    # POSIX cron runs */3 on days 1,4,7,... so month boundaries can shorten
+    # or lengthen the gap. GitHub may also delay scheduled runs under load;
+    # use the manual dispatch below for immediate builds.
+    - cron: '0 22 */3 * *'
   workflow_dispatch:
     inputs:
       upstream_ref:
-        description: 'Optional upstream tag/SHA to build (empty = latest release + main)'
+        description: 'Upstream release tag to build (empty = latest release)'
         required: false
         default: ''
       force:
-        description: 'Rebuild even if the release/build already exists'
+        description: 'Rebuild even if the release already exists'
         required: false
         type: boolean
         default: false
@@ -48,11 +47,12 @@ env:
   GH_REPO: ${{ github.repository }}
   PROJECT: RenoDXCommander/RenoDXCommander.csproj
   PATCH_FILE: patches/zh-cn.patch
+  INSTALLER_PATCH_FILE: patches/installer-zh-cn.patch
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
 
 jobs:
-  sync-build-release:
+  build-release:
     runs-on: windows-latest
     steps:
       - name: Checkout zh-cn branch (full history)
@@ -82,7 +82,7 @@ jobs:
           ./.github/scripts/zh-cn-sync.ps1 @params
 
       - name: Setup .NET 8
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -91,7 +91,7 @@ jobs:
       # (it crashes the WinAppSDK XAML compiler on publish). The patch makes the
       # csproj copy it when present; fetch it so freeze diagnostics ship.
       - name: Restore ClrMD diagnostics DLL
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         run: |
           $ver = '3.1.512801'
@@ -104,9 +104,9 @@ jobs:
           New-Item -ItemType Directory -Force $dir | Out-Null
           Copy-Item "$tmp/lib/net6.0/Microsoft.Diagnostics.Runtime.dll" $dir
 
-      - name: Apply localization patch to upstream source
+      - name: Apply localization and installer patches
         id: source
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         env:
           TARGET: ${{ steps.plan.outputs.target }}
@@ -122,19 +122,21 @@ jobs:
 
           Push-Location $build
           try {
-            $patch = Join-Path $env:GITHUB_WORKSPACE $env:PATCH_FILE
-            git apply --3way --whitespace=nowarn $patch
-            if ($LASTEXITCODE -ne 0) {
-              $conflicts = @(git diff --name-only --diff-filter=U)
-              Pop-Location
-              & (Join-Path $env:GITHUB_WORKSPACE '.github/scripts/zh-cn-conflict.ps1') `
-                -Target $env:TARGET -TargetSha $env:TARGET_SHA -Conflicts $conflicts
-              exit 1
+            foreach ($patchName in @($env:PATCH_FILE, $env:INSTALLER_PATCH_FILE)) {
+              $patch = Join-Path $env:GITHUB_WORKSPACE $patchName
+              git apply --3way --whitespace=nowarn $patch
+              if ($LASTEXITCODE -ne 0) {
+                $conflicts = @(git diff --name-only --diff-filter=U)
+                Pop-Location
+                & (Join-Path $env:GITHUB_WORKSPACE '.github/scripts/zh-cn-conflict.ps1') `
+                  -Target $env:TARGET -TargetSha $env:TARGET_SHA -Conflicts $conflicts
+                exit 1
+              }
             }
 
             git add -A
-            git commit -m "zhCN: apply localization patch to $env:TARGET (upstream $env:TARGET_SHA)"
-            if ($LASTEXITCODE -ne 0) { throw 'git commit failed after applying the patch' }
+            git commit -m "zhCN: apply localization patches to $env:TARGET (upstream $env:TARGET_SHA)"
+            if ($LASTEXITCODE -ne 0) { throw 'git commit failed after applying the patches' }
             git checkout -B zh-cn-build
 
             $built = (& git rev-parse HEAD).Trim()
@@ -147,7 +149,7 @@ jobs:
           }
 
       - name: Restore
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         run: |
           Push-Location $env:BUILD_DIR
@@ -155,7 +157,7 @@ jobs:
           finally { Pop-Location }
 
       - name: Build (Release x64)
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         run: |
           Push-Location $env:BUILD_DIR
@@ -163,7 +165,7 @@ jobs:
           finally { Pop-Location }
 
       - name: Localization tests
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         continue-on-error: true
         shell: pwsh
         run: |
@@ -172,7 +174,7 @@ jobs:
           finally { Pop-Location }
 
       - name: Publish portable folder
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         run: |
           Push-Location $env:BUILD_DIR
@@ -181,51 +183,97 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally { Pop-Location }
 
-      - name: Package zip and release notes
-        if: steps.plan.outputs.action != 'none'
+      # Same loose files the upstream publish.bat puts beside the exe. The
+      # portable publish already contains most content items; add the pieces it
+      # does not (DropHelper, RDR2 template, usage notes).
+      - name: Add loose files (DropHelper, templates, usage notes)
+        if: steps.plan.outputs.action == 'release'
+        shell: pwsh
+        run: |
+          Push-Location $env:BUILD_DIR
+          try {
+            dotnet build RHI.DropHelper/RHI.DropHelper.csproj -c Release -p:Platform=x64
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+            $helperOut = Join-Path $env:BUILD_DIR 'RHI.DropHelper\bin\x64\Release\net8.0-windows'
+            foreach ($name in @('RHI.DropHelper.exe', 'RHI.DropHelper.dll', 'RHI.DropHelper.runtimeconfig.json')) {
+              $src = Join-Path $helperOut $name
+              if (Test-Path $src) { Copy-Item $src $env:PUBLISH_DIR -Force }
+            }
+
+            Copy-Item (Join-Path $env:BUILD_DIR 'RenoDXCommander\reshade.rdr2.ini') $env:PUBLISH_DIR -Force
+            Copy-Item (Join-Path $env:GITHUB_WORKSPACE '.github\patch\README-patch.md') $env:PUBLISH_DIR -Force
+          } finally { Pop-Location }
+
+      - name: Install Inno Setup
+        if: steps.plan.outputs.action == 'release'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) {
+            $iscc = Get-ChildItem "$env:LOCALAPPDATA\Programs\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $iscc) { throw 'ISCC.exe not found after installing Inno Setup' }
+          "ISCC=$iscc" >> $env:GITHUB_ENV
+          Write-Host "Using $iscc"
+
+      - name: Build Setup.exe (Chinese Inno Setup)
+        if: steps.plan.outputs.action == 'release'
+        shell: pwsh
+        run: |
+          Push-Location $env:BUILD_DIR
+          try {
+            & $env:ISCC "/DPublishDir=$env:PUBLISH_DIR" "/DInstallerOutputDir=$env:GITHUB_WORKSPACE" "RHI Setup.iss"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally { Pop-Location }
+          if (-not (Test-Path (Join-Path $env:GITHUB_WORKSPACE 'RHI-Setup.exe'))) {
+            throw 'Inno Setup did not produce RHI-Setup.exe'
+          }
+
+      - name: Package zip, installer and release notes
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         env:
-          ACTION: ${{ steps.plan.outputs.action }}
           VERSION_TAG: ${{ steps.plan.outputs.version_tag }}
           TARGET_SHA: ${{ steps.plan.outputs.target_sha }}
         run: |
-          if ($env:ACTION -eq 'release') {
-            $ver = $env:VERSION_TAG -replace '^RHI-', ''
-            $asset = "RHI-zhCN-$ver-win-x64"
-            $relTag = "zhCN-$($env:VERSION_TAG)"
-            $title = "RHI 简体中文版 $ver"
-          } else {
-            $short = $env:BUILT_SHA.Substring(0, 8)
-            $asset = "RHI-zhCN-dev-$short-win-x64"
-            $relTag = 'zhCN-latest'
-            $title = "RHI 简体中文开发版 $short"
-            $ver = "dev-$short"
-          }
+          $ver = $env:VERSION_TAG -replace '^RHI-', ''
+          $asset = "RHI-zhCN-$ver-win-x64"
+          $setupName = "RHI-zhCN-$ver-Setup"
+          $relTag = "zhCN-$($env:VERSION_TAG)"
+          $title = "RHI 简体中文版 $ver"
 
           "VERSION=$ver" >> $env:GITHUB_ENV
           "ASSET_NAME=$asset" >> $env:GITHUB_ENV
           "RELEASE_TAG=$relTag" >> $env:GITHUB_ENV
           "RELEASE_TITLE=$title" >> $env:GITHUB_ENV
 
-          Copy-Item (Join-Path $env:GITHUB_WORKSPACE '.github/patch/README-patch.md') -Destination $env:PUBLISH_DIR
           $zip = Join-Path $env:GITHUB_WORKSPACE "$asset.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "$env:PUBLISH_DIR\*" -DestinationPath $zip -CompressionLevel Optimal
           (Get-FileHash $zip -Algorithm SHA256).Hash | Out-File "$zip.sha256" -Encoding utf8
           "ASSET_ZIP=$zip" >> $env:GITHUB_ENV
 
+          $setup = Join-Path $env:GITHUB_WORKSPACE "$setupName.exe"
+          Move-Item (Join-Path $env:GITHUB_WORKSPACE 'RHI-Setup.exe') $setup -Force
+          (Get-FileHash $setup -Algorithm SHA256).Hash | Out-File "$setup.sha256" -Encoding utf8
+          "SETUP_ASSET=$setup" >> $env:GITHUB_ENV
+
           & (Join-Path $env:GITHUB_WORKSPACE '.github/scripts/zh-cn-notes.ps1') `
-            -Action $env:ACTION -Version $ver -VersionTag $env:VERSION_TAG `
-            -BuiltSha $env:BUILT_SHA -UpstreamSha $env:TARGET_SHA -Download "$asset.zip"
+            -Version $ver -VersionTag $env:VERSION_TAG -BuiltSha $env:BUILT_SHA `
+            -UpstreamSha $env:TARGET_SHA -DownloadZip "$asset.zip" -DownloadSetup "$setupName.exe"
 
       - name: Push patched source branch
-        if: steps.plan.outputs.action != 'none'
+        if: steps.plan.outputs.action == 'release'
         shell: pwsh
         run: |
           git -C $env:BUILD_DIR push -f origin HEAD:refs/heads/zh-cn-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Publish versioned release
+      - name: Publish release
         if: steps.plan.outputs.action == 'release'
         shell: pwsh
         env:
@@ -233,29 +281,8 @@ jobs:
         run: |
           gh release view $env:RELEASE_TAG *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256" --clobber
+            gh release upload $env:RELEASE_TAG "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256" "$env:SETUP_ASSET" "$env:SETUP_ASSET.sha256" --clobber
             gh release edit $env:RELEASE_TAG --title $env:RELEASE_TITLE --notes-file release-notes.md --latest
           } else {
-            gh release create $env:RELEASE_TAG --target $env:BUILT_SHA --title $env:RELEASE_TITLE --notes-file release-notes.md --latest "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256"
-          }
-
-      - name: Publish rolling development release
-        if: steps.plan.outputs.action == 'dev'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git -C $env:BUILD_DIR tag -f zhCN-latest $env:BUILT_SHA
-          git -C $env:BUILD_DIR push -f origin refs/tags/zhCN-latest
-
-          gh release view zhCN-latest *> $null
-          if ($LASTEXITCODE -eq 0) {
-            $old = gh release view zhCN-latest --json assets --jq '.assets[].name'
-            foreach ($name in $old) {
-              if ($name) { gh release delete-asset zhCN-latest $name --yes }
-            }
-            gh release upload zhCN-latest "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256" --clobber
-            gh release edit zhCN-latest --title $env:RELEASE_TITLE --notes-file release-notes.md --prerelease
-          } else {
-            gh release create zhCN-latest --target $env:BUILT_SHA --title $env:RELEASE_TITLE --notes-file release-notes.md --prerelease "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256"
+            gh release create $env:RELEASE_TAG --target $env:BUILT_SHA --title $env:RELEASE_TITLE --notes-file release-notes.md --latest "$env:ASSET_ZIP" "$env:ASSET_ZIP.sha256" "$env:SETUP_ASSET" "$env:SETUP_ASSET.sha256"
           }

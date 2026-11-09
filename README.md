@@ -1,14 +1,15 @@
 > ## RHI 简体中文版（非官方分支）
 >
 > 本仓库是 [RankFTW/RHI](https://github.com/RankFTW/RHI) 的自动汉化分支：分支基于上游源码，
-> 额外只增加 `patches/zh-cn.patch` 和 CI。上游发布新 release 或推送 main 后，GitHub Actions
-> 会把补丁 3-way 应用到对应源码、构建并发布简体中文版。
+> 额外只增加两个补丁和 CI。上游发布新 release 后，GitHub Actions 会把补丁 3-way 应用到
+> 对应 tag、构建并发布简体中文版（安装器 + 便携包）。
 >
-> - **下载**：[Releases](https://github.com/CLF184/RHI/releases) — 正式版 `zhCN-RHI-<版本>`，滚动开发版 `zhCN-latest`
-> - **全新安装**：整目录解压后运行 `RHI.exe`，不要只拷贝 exe
-> - **已装官方版**：退出 RHI，把解压出的全部文件覆盖进安装目录即可，设置与游戏列表保留
+> - **下载**：[Releases](https://github.com/CLF184/RHI/releases) — `zhCN-RHI-<版本>`
+>   - `RHI-zhCN-<版本>-Setup.exe`：推荐，中文安装器，可直接覆盖官方版
+>   - `RHI-zhCN-<版本>-win-x64.zip`：便携版，整目录解压
+> - **已装官方版**：运行 Setup.exe，或退出 RHI 后整目录覆盖安装目录，设置与游戏列表保留
 > - **切换语言**：Settings → Language → 简体中文；默认跟随系统
-> - **实现方式**：单个 `patches/zh-cn.patch`（新增 `LocalizationService` 运行时词表 + 少量挂接点），其余代码保持上游原样
+> - **实现方式**：`patches/zh-cn.patch`（运行时词表 + 少量挂接点）+ `patches/installer-zh-cn.patch`（安装器中文），其余代码保持上游原样
 > - **应用内更新**：检查更新指向本仓库 Releases，有新版本时打开下载页面（不会自动覆盖）
 > - **许可**：GPL-3.0，源码与修改全部开放
 >
