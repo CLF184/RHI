@@ -1,9 +1,9 @@
 diff --git a/RenoDXCommander.Tests/LocalizationServiceTests.cs b/RenoDXCommander.Tests/LocalizationServiceTests.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..7102fb14cb02395b2d2cc63909f8c437a30341fb
+index 0000000000000000000000000000000000000000..e1b19a5ecac298dd0fce6b3f6bae0091e1de8720
 --- /dev/null
 +++ b/RenoDXCommander.Tests/LocalizationServiceTests.cs
-@@ -0,0 +1,200 @@
+@@ -0,0 +1,222 @@
 +using System.Globalization;
 +using RenoDXCommander.Services;
 +using Xunit;
@@ -197,6 +197,28 @@ index 0000000000000000000000000000000000000000..7102fb14cb02395b2d2cc63909f8c437
 +
 +            Assert.Equal("Close", LocalizationService.ResolveSourceText("关闭", "Close"));
 +            Assert.Equal("Off", LocalizationService.ResolveSourceText("关闭", "Off"));
++        }
++        finally
++        {
++            LocalizationService.SetLanguagePreference(LocalizationService.EnglishLanguage);
++        }
++    }
++
++    [Fact]
++    public void DynamicUiRules_TranslateComponentStatesAndDialogs()
++    {
++        try
++        {
++            LocalizationService.SetLanguagePreference(LocalizationService.SimplifiedChineseLanguage);
++
++            Assert.Equal("⬆  更新 ReShade", LocalizationService.Text("⬆  Update ReShade"));
++            Assert.Equal("⬇  安装 SomeMod", LocalizationService.Text("⬇  Install SomeMod"));
++            Assert.Equal("↺  重装 Foo", LocalizationService.Text("↺  Reinstall Foo"));
++            Assert.Equal("⚠  需要 SomeMod", LocalizationService.Text("⚠  SomeMod required"));
++            Assert.Equal("已安装：1.2.3 · 最新：4.5.6", LocalizationService.Text("Installed: 1.2.3 · Latest: 4.5.6"));
++            Assert.Equal("已更新 3 个 OptiScaler.ini 文件。", LocalizationService.Text("Updated 3 OptiScaler.ini file(s)."));
++            Assert.Equal("已安装为：dxgi.dll\n点击打开 GitHub 发布页", LocalizationService.Text("Installed as: dxgi.dll\nClick to open GitHub releases"));
++            Assert.Equal("已保存：显示器 Dell = 50%", LocalizationService.Text("Saved: Display Dell = 50%"));
 +        }
 +        finally
 +        {
@@ -1251,10 +1273,10 @@ index 4d82a6a467e8d1185ab12aa796782fec9d33c0cf..ec6c5c2205750aa4e11bfe02fb00dd0e
  </Project>
 diff --git a/RenoDXCommander/Services/LocalizationService.cs b/RenoDXCommander/Services/LocalizationService.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..62dea70698867a46cc0b11292405d6de9e8e034c
+index 0000000000000000000000000000000000000000..a553bf48df309f818d34233e759fbb1b5c4d816e
 --- /dev/null
 +++ b/RenoDXCommander/Services/LocalizationService.cs
-@@ -0,0 +1,2245 @@
+@@ -0,0 +1,2852 @@
 +using System.Globalization;
 +using System.Text.RegularExpressions;
 +using Microsoft.UI.Xaml;
@@ -1769,6 +1791,154 @@ index 0000000000000000000000000000000000000000..62dea70698867a46cc0b11292405d6de
 +        match = Regex.Match(trimmed, @"^v(?<version>.+?)\s+·\s+HDR mod manager by RankFTW$", RegexOptions.IgnoreCase);
 +        if (match.Success)
 +            return $"v{match.Groups["version"].Value}  ·  {Text("HDR mod manager by RankFTW")}";
++        // ── zh-CN dynamic UI coverage ─────────────────────────────────────
++        var dm = Regex.Match(trimmed, @"^⬆  Update (?<name>.+)$");
++        if (dm.Success) return $"⬆  更新 {dm.Groups["name"].Value}";
++
++        dm = Regex.Match(trimmed, @"^⬇  Install(?: (?<name>.+))?$");
++        if (dm.Success)
++            return dm.Groups["name"].Success ? $"⬇  安装 {dm.Groups["name"].Value}" : "⬇  安装";
++
++        dm = Regex.Match(trimmed, @"^↺  Reinstall (?<name>.+)$");
++        if (dm.Success) return $"↺  重装 {dm.Groups["name"].Value}";
++
++        dm = Regex.Match(trimmed, @"^(?<arrow>[⬆↺])  Manage$");
++        if (dm.Success) return $"{dm.Groups["arrow"].Value}  管理";
++
++        dm = Regex.Match(trimmed, @"^⚠  (?<name>.+?) required$");
++        if (dm.Success) return $"⚠  需要 {dm.Groups["name"].Value}";
++
++        dm = Regex.Match(trimmed, @"^———  (?<label>.+)  ———$");
++        if (dm.Success) return $"———  {dm.Groups["label"].Value}  ———";
++
++        dm = Regex.Match(trimmed, @"^Installed as: (?<name>.+)$");
++        if (dm.Success) return $"已安装为：{dm.Groups["name"].Value}";
++
++        dm = Regex.Match(trimmed, @"^Installed: (?<installed>.+?) · Latest: checking\.\.\.$");
++        if (dm.Success) return $"已安装：{dm.Groups["installed"].Value} · 最新：检查中...";
++
++        dm = Regex.Match(trimmed, @"^Installed: (?<installed>.+?) · Latest: couldn't check.*$");
++        if (dm.Success) return $"已安装：{dm.Groups["installed"].Value} · 最新：无法检查";
++
++        dm = Regex.Match(trimmed, @"^Installed: (?<installed>.+?) · Custom build, not updated by RHI.*$");
++        if (dm.Success) return $"已安装：{dm.Groups["installed"].Value} · 自定义构建，RHI 不会更新";
++
++        dm = Regex.Match(trimmed, @"^Installed: (?<installed>.+?) · Latest: (?<latest>.+)$");
++        if (dm.Success) return $"已安装：{dm.Groups["installed"].Value} · 最新：{dm.Groups["latest"].Value}";
++
++        dm = Regex.Match(trimmed, @"^Updated (?<count>\d+) (?<file>.+?) file\(s\)\.$");
++        if (dm.Success) return $"已更新 {dm.Groups["count"].Value} 个 {dm.Groups["file"].Value} 文件。";
++
++        dm = Regex.Match(trimmed, @"^Applied peak nits \((?<nits>.+?)\) to (?<count>\d+) reshade\.ini file\(s\)\.$");
++        if (dm.Success) return $"已将峰值亮度（{dm.Groups["nits"].Value}）应用到 {dm.Groups["count"].Value} 个 reshade.ini 文件。";
++
++        dm = Regex.Match(trimmed, @"^Deleted (?<count>\d+) files, freed (?<size>.+) of disk space\.$");
++        if (dm.Success) return $"已删除 {dm.Groups["count"].Value} 个文件，释放 {dm.Groups["size"].Value} 磁盘空间。";
++
++        dm = Regex.Match(trimmed, @"^Reset (?<count>\d+) game profile\(s\) and global settings to factory defaults\.$");
++        if (dm.Success) return $"已将 {dm.Groups["count"].Value} 个游戏配置和全局设置重置为出厂默认。";
++
++        dm = Regex.Match(trimmed, @"^Imported (?<count>\d+) profile\(s\) from backup\.$");
++        if (dm.Success) return $"已从备份导入 {dm.Groups["count"].Value} 个配置。";
++
++        dm = Regex.Match(trimmed, @"^Connected as (?<user>.+?) \((?<tier>.+)\)$");
++        if (dm.Success) return $"已连接：{dm.Groups["user"].Value}（{dm.Groups["tier"].Value}）";
++
++        dm = Regex.Match(trimmed, @"^Signed in as (?<user>.+?) · .*$");
++        if (dm.Success) return $"已登录：{dm.Groups["user"].Value}";
++
++        dm = Regex.Match(trimmed, @"^Driver (?<ver>.+)  ·$");
++        if (dm.Success) return $"驱动 {dm.Groups["ver"].Value}  ·";
++
++        dm = Regex.Match(trimmed, @"^Paper white about (?<nits>\S+) nits$");
++        if (dm.Success) return $"纸白约 {dm.Groups["nits"].Value} 尼特";
++
++        dm = Regex.Match(trimmed, @"^Set Middle Grey to achieve about (?<nits>\S+) nits paper white$");
++        if (dm.Success) return $"设置中灰以得到约 {dm.Groups["nits"].Value} 尼特的纸白";
++
++        dm = Regex.Match(trimmed, @"^Your screen will go black for about 15 seconds while the driver applies '(?<label>.+)'\.$");
++        if (dm.Success) return $"驱动应用「{dm.Groups["label"].Value}」时，屏幕会黑屏约 15 秒。";
++
++        dm = Regex.Match(trimmed, @"^Save the current search ""(?<query>.+)"" as a custom filter:$");
++        if (dm.Success) return $"将当前搜索「{dm.Groups["query"].Value}」保存为自定义筛选：";
++
++        dm = Regex.Match(trimmed, @"^Delete the capture '(?<label>.+)'\?$");
++        if (dm.Success) return $"删除捕获「{dm.Groups["label"].Value}」？";
++
++        dm = Regex.Match(trimmed, @"^Remove (?<name>.+) from RHI\?$");
++        if (dm.Success) return $"从 RHI 移除 {dm.Groups["name"].Value}？";
++
++        dm = Regex.Match(trimmed, @"^Remove (?<name>.+)\?$");
++        if (dm.Success) return $"移除 {dm.Groups["name"].Value}？";
++
++        dm = Regex.Match(trimmed, @"^Reset: Display (?<name>.+) = (?<pct>\d+)% \(neutral\)$");
++        if (dm.Success) return $"重置：显示器 {dm.Groups["name"].Value} = {dm.Groups["pct"].Value}%（中性）";
++
++        dm = Regex.Match(trimmed, @"^Saved: Display (?<name>.+) = (?<pct>\d+)%$");
++        if (dm.Success) return $"已保存：显示器 {dm.Groups["name"].Value} = {dm.Groups["pct"].Value}%";
++
++        dm = Regex.Match(trimmed, @"^Install (?<name>.+) to a game folder\.$");
++        if (dm.Success) return $"将 {dm.Groups["name"].Value} 安装到游戏文件夹。";
++
++        dm = Regex.Match(trimmed, @"^Install (?<name>.+) to:$");
++        if (dm.Success) return $"将 {dm.Groups["name"].Value} 安装到：";
++
++        dm = Regex.Match(trimmed, @"^Luma mod detected: (?<name>.+)$");
++        if (dm.Success) return $"检测到 Luma 模组：{dm.Groups["name"].Value}";
++
++        dm = Regex.Match(trimmed, @"^Mod author: (?<author>.+?) — click to open their donation page$");
++        if (dm.Success) return $"模组作者：{dm.Groups["author"].Value} — 点击打开其捐赠页面";
++
++        dm = Regex.Match(trimmed, @"^Open (?<name>.+) GitHub page$");
++        if (dm.Success) return $"打开 {dm.Groups["name"].Value} GitHub 页面";
++
++        dm = Regex.Match(trimmed, @"^Data for (?<count>\d+) games has been gathered.*$");
++        if (dm.Success) return $"已收集 {dm.Groups["count"].Value} 个游戏的数据并复制到剪贴板。可直接粘贴到 Discord 分享。";
++
++        dm = Regex.Match(trimmed, @"^Disable (?<name>.+) first to enable this addon\.$");
++        if (dm.Success) return $"请先禁用 {dm.Groups["name"].Value} 才能启用此插件。";
++
++        dm = Regex.Match(trimmed, @"^In use by (?<name>.+)\. Choose a different name\.$");
++        if (dm.Success) return $"正被 {dm.Groups["name"].Value} 使用。请选择其他名称。";
++
++        dm = Regex.Match(trimmed, @"^Restoring (?<name>.+)\.\.\.$");
++        if (dm.Success) return $"正在还原 {dm.Groups["name"].Value}...";
++
++        dm = Regex.Match(trimmed, @"^Staging DLSS5 Tool v(?<ver>.+)\.\.\.$");
++        if (dm.Success) return $"正在暂存 DLSS5 Tool v{dm.Groups["ver"].Value}...";
++
++        dm = Regex.Match(trimmed, @"^Staging ShortFuse v(?<ver>.+)\.\.\.$");
++        if (dm.Success) return $"正在暂存 ShortFuse v{dm.Groups["ver"].Value}...";
++
++        dm = Regex.Match(trimmed, @"^You're running v(?<ver>.+) — no updates available\.$");
++        if (dm.Success) return $"当前运行 v{dm.Groups["ver"].Value} —— 没有可用更新。";
++
++        dm = Regex.Match(trimmed, @"^Forget ignored games \((?<count>\d+)\)$");
++        if (dm.Success) return $"忘记已忽略的游戏（{dm.Groups["count"].Value}）";
++
++        dm = Regex.Match(trimmed, @"^\.\.\. and (?<count>\d+) more$");
++        if (dm.Success) return $"... 还有 {dm.Groups["count"].Value} 个";
++
++        dm = Regex.Match(trimmed, @"^🌙 (?<count>\d+) new Luma mod.*$");
++        if (dm.Success) return $"🌙 新增 {dm.Groups["count"].Value} 个 Luma 模组";
++
++        dm = Regex.Match(trimmed, @"^🖥️ (?<count>\d+) new RenoDX mod.*$");
++        if (dm.Success) return $"🖥️ 新增 {dm.Groups["count"].Value} 个 RenoDX 模组";
++
++        dm = Regex.Match(trimmed, @"^v(?<ver>\S+)  ·  Simplified PC Gaming by RankFTW$");
++        if (dm.Success) return $"v{dm.Groups["ver"].Value}  ·  RankFTW 打造的简化 PC 游戏工具";
++
++        dm = Regex.Match(trimmed, @"^No \.addon64, \.addon32, or \.addon files were found inside '(?<name>.+)'\.$");
++        if (dm.Success) return $"在「{dm.Groups["name"].Value}」中没有找到 .addon64、.addon32 或 .addon 文件。";
++
++        dm = Regex.Match(trimmed, @"^Override the OptiScaler DLL file name\. Choose -------- to go back to the default name \((?<name>.+)\)\.$");
++        if (dm.Success) return $"覆盖 OptiScaler DLL 文件名。选择 -------- 恢复默认名称（{dm.Groups["name"].Value}）。";
++
++        dm = Regex.Match(trimmed, @"^ReShade is loaded as (?<name>.+) for this game\. Turn off Load ReShade as ASI in ReShade's ⚙ to choose a DLL name\.$");
++        if (dm.Success) return $"此游戏的 ReShade 以 {dm.Groups["name"].Value} 加载。在 ReShade 的 ⚙ 中关闭「以 ASI 加载 ReShade」即可选择 DLL 名称。";
++
++        dm = Regex.Match(trimmed, @"^This will restore driver settings for (?<name>.+) back to the factory default and restore DLSS/Streamline DLLs to their original versions\. This action is irreversible\.$");
++        if (dm.Success) return $"这会将 {dm.Groups["name"].Value} 的驱动设置恢复为出厂默认，并将 DLSS/Streamline DLL 恢复为原始版本。此操作不可撤销。";
 +
 +        match = Regex.Match(trimmed, @"^Updated (?<count>\d+) (?<file>.+?) file(?<plural>s?)\.$", RegexOptions.IgnoreCase);
 +        if (match.Success)
@@ -3498,6 +3668,465 @@ index 0000000000000000000000000000000000000000..62dea70698867a46cc0b11292405d6de
 +        ["Installed:"] = "已安装：",
 +        ["Available:"] = "可用版本：",
 +        ["Download the new Setup.exe to install over the existing version, or the portable zip to replace the install folder. Your settings and game list are kept."] = "下载新的 Setup.exe 可直接覆盖安装现有版本；也可以下载便携 zip 替换安装目录。设置和游戏列表都会保留。",
++        // ── 2.9.x UI coverage (settings page / main window) ─────────────────
++        ["·  MIT Licence"] = "·  MIT 许可证",
++        ["Admin"] = "管理员",
++        ["·  Source-available"] = "·  源码公开",
++        ["Batch deploy"] = "批量部署",
++        ["Check for updates"] = "检查更新",
++        ["Needs Admin Mode (General › Windows and Admin Mode)."] = "需要管理员模式（常规 › Windows 与管理员模式）。",
++        ["(not checked)"] = "（未勾选）",
++        ["0 ReShade"] = "0 个 ReShade",
++        ["A token raises the GitHub API rate limit from 60 to 5,000 requests per hour. This improves reliability of update checks, DLSS version lookups, and manifest fetches."] = "令牌可将 GitHub API 限额从每小时 60 次提升到 5,000 次，从而提高更新检查、DLSS 版本查询和 manifest 获取的可靠性。",
++        ["Account"] = "账户",
++        ["Accounts & Data"] = "账户与数据",
++        ["Accounts and mod data"] = "账户与模组数据",
++        ["Addon watch folder"] = "插件监视文件夹",
++        ["Adjust"] = "调整",
++        ["Adjust DSR smoothness (0-100%). Lower values are sharper, higher values are smoother. ~15 second display blackout on apply."] = "调整 DSR 平滑度（0-100%）。数值越低越锐利，越高越平滑。应用时屏幕会黑屏约 15 秒。",
++        ["All RHI data is stored in AppData. The Logs folder contains session usage logs useful for troubleshooting."] = "RHI 的所有数据都保存在 AppData 中。Logs 文件夹包含会话日志，便于排查问题。",
++        ["Apply the colour depth and dynamic range to the selected monitor."] = "将色深和动态范围应用到所选显示器。",
++        ["Apply the selected DLDSR state. Causes ~15 second display blackout."] = "应用选中的 DLDSR 状态。会导致约 15 秒黑屏。",
++        ["Apply the selected smoothness value. Causes ~15 second display blackout."] = "应用选中的平滑度数值。会导致约 15 秒黑屏。",
++        ["Automatic DLSS and Streamline updates: General › Updates."] = "自动更新 DLSS 与 Streamline：常规 › 更新。",
++        ["Automatic updates"] = "自动更新",
++        ["Available Mods"] = "可用模组",
++        ["Back up profiles"] = "备份配置",
++        ["Background checks"] = "后台检查",
++        ["Bits per colour channel sent to the monitor. 10 bpc or higher suits HDR. Only depths your monitor and cable support will work."] = "发送到显示器的每通道色深。10 bpc 或更高适合 HDR；只有显示器和线缆支持的色深才会生效。",
++        ["Bulk actions, folders and logs, and last-resort fixes."] = "批量操作、文件夹与日志，以及最后的修复手段。",
++        ["Capture current"] = "捕获当前状态",
++        ["Capture the current DLDSR state from NVIDIA Control Panel. Configure DLDSR in NVIDIA CP first, then capture."] = "从 NVIDIA 控制面板捕获当前 DLDSR 状态。请先在 NVIDIA 控制面板中配置 DLDSR，再捕获。",
++        ["Change resolution"] = "更改分辨率",
++        ["Changing this updates every game's shaders, so RHI asks first."] = "更改此项会更新所有游戏的着色器，因此 RHI 会先询问。",
++        ["Choose"] = "选择",
++        ["Choose the DLSS / Streamline versions, presets and render scales that Quick Apply uses."] = "选择 Quick Apply 使用的 DLSS / Streamline 版本、预设和渲染比例。",
++        ["Choose which components RHI checks for updates. Components you turn off are not checked during startup or Update All."] = "选择 RHI 检查更新的组件。关闭的组件不会在启动或「全部更新」时检查。",
++        ["Clear shader cache"] = "清除着色器缓存",
++        ["Close to tray"] = "关闭到托盘",
++        ["Closing the window keeps RHI running in the system tray."] = "关闭窗口后 RHI 继续在系统托盘运行。",
++        ["Colour depth"] = "色深",
++        ["Components to check"] = "要检查的组件",
++        ["Configure defaults"] = "配置默认值",
++        ["Connect signs in to Nexus Mods in your browser. Premium users get one-click downloads and silent auto-updates. Free users get one-click browser downloads."] = "Connect 会在浏览器中登录 Nexus Mods。高级用户可一键下载并静默自动更新；免费用户可一键在浏览器中下载。",
++        ["Copy logs"] = "复制日志",
++        ["Create a token"] = "创建令牌",
++        ["Create missing profiles"] = "创建缺失的配置",
++        ["Creates a scheduled task that launches RHI with elevated privileges, so there is no prompt each time. Takes effect after RHI restarts."] = "创建计划任务，以管理员权限启动 RHI，避免每次弹 UAC。RHI 重启后生效。",
++        ["Creates NVIDIA driver profiles for all games that don't have one yet. Games without a profile don't get the driver defaults above (Power Mode, VSync and so on)."] = "为所有还没有 NVIDIA 驱动配置的游戏创建配置。没有配置的游戏不会应用上方的驱动默认值（电源模式、VSync 等）。",
++        ["Current state"] = "当前状态",
++        ["Defaults for every game using ReShade. Each game can still change these in its own ReShade ⚙."] = "所有使用 ReShade 的游戏的默认值。每个游戏仍可在自己的 ReShade ⚙ 中修改。",
++        ["Defaults for ReLimiter and OptiScaler. Each game's ⚙ overrides these."] = "ReLimiter 和 OptiScaler 的默认值。每个游戏的 ⚙ 可覆盖这些设置。",
++        ["Delete the currently selected saved state."] = "删除当前选中的已保存状态。",
++        ["Deploy INI files or ReShade presets to many games at once. Your hotkeys and screenshot folder are kept."] = "一次向多个游戏部署 INI 文件或 ReShade 预设。快捷键和截图文件夹会保留。",
++        ["Deploy to many games"] = "部署到多个游戏",
++        ["Digital vibrance"] = "数字振动",
++        ["Display"] = "显示",
++        ["Display & HDR"] = "显示与 HDR",
++        ["DLSS hooks"] = "DLSS 挂钩",
++        ["DLSS indicator"] = "DLSS 指示器",
++        ["DLSS inputs"] = "DLSS 输入",
++        ["Download all shaders"] = "下载所有着色器",
++        ["Downloads"] = "下载",
++        ["Downloads (default)"] = "下载（默认）",
++        ["Driver defaults"] = "驱动默认值",
++        ["Driver defaults for every game. A game's own Driver Settings section overrides these."] = "所有游戏的驱动默认值。每个游戏自己的「驱动设置」会覆盖这些。",
++        ["Driver Settings"] = "驱动设置",
++        ["Driver-level settings applied globally via the base NVIDIA profile. Per-game settings are in the Driver Settings section of each game's panel."] = "通过 NVIDIA 基础配置全局应用的驱动设置。每个游戏的设置位于其面板的「驱动设置」部分。",
++        ["Drop your own ReShade, DLSS or Streamline DLLs into the Custom folder to use them as per-game overrides."] = "将自己的 ReShade、DLSS 或 Streamline DLL 放入 Custom 文件夹，即可作为每个游戏的覆盖版本。",
++        ["Dynamic range"] = "动态范围",
++        ["Export game data"] = "导出游戏数据",
++        ["Fixes recommended for this game, such as the depth of field fix."] = "推荐给此游戏的修复，例如景深修复。",
++        ["Folder per game"] = "每个游戏单独文件夹",
++        ["Folders and logs"] = "文件夹与日志",
++        ["Frame rate limit"] = "帧率限制",
++        ["Full refresh"] = "完整刷新",
++        ["Full suits PC monitors. Limited suits TVs that expect video levels. The wrong one makes blacks look grey or crushed."] = "Full 适合 PC 显示器；Limited 适合期望视频电平的电视。选错会让黑色发灰或被压死。",
++        ["G-Sync indicator"] = "G-Sync 指示器",
++        ["G-Sync mode"] = "G-Sync 模式",
++        ["Games shown with the current filters."] = "当前筛选条件下显示的游戏。",
++        ["Games with ReShade installed."] = "已安装 ReShade 的游戏。",
++        ["General"] = "常规",
++        ["GitHub token"] = "GitHub 令牌",
++        ["Global Dynamic Multi Frame Generation (DMFG) defaults. Set these once, then just enable Dynamic mode in each game's MFG dialog."] = "全局动态多帧生成（DMFG）默认值。设置一次后，只需在每个游戏的 MFG 对话框中启用动态模式。",
++        ["Global FPS cap via NVIDIA driver. VRR-optimal presets cap just below refresh rate to stay in VRR range. Choosing a cap also turns the per-game FPS limit Off for every game with ReLimiter or Display Commander, so the two limiters don't fight."] = "通过 NVIDIA 驱动设置全局 FPS 上限。VRR 优化预设会略低于刷新率，以保持在 VRR 范围内。选择上限还会把装有 ReLimiter 或 Display Commander 的游戏的每游戏 FPS 限制设为关闭，避免两个限制器冲突。",
++        ["Go back to your Downloads folder"] = "返回下载文件夹",
++        ["GPU type"] = "GPU 类型",
++        ["HDR brightness (RenoDX)"] = "HDR 亮度（RenoDX）",
++        ["Hidden games. Use the Hidden filter to see them."] = "隐藏的游戏。使用「隐藏」筛选查看。",
++        ["How to use DLDSR Control"] = "如何使用 DLDSR 控制",
++        ["Indicator, frame generation and batch deploy"] = "指示器、帧生成与批量部署",
++        ["Install a ReShade preset into many games at once."] = "一次将 ReShade 预设安装到多个游戏。",
++        ["Keys and screenshots"] = "快捷键与截图",
++        ["Keys, screenshots and brightness"] = "快捷键、截图与亮度",
++        ["Logs"] = "日志",
++        ["Matches the DLSS / Streamline section in each game's panel."] = "与每个游戏面板中的 DLSS / Streamline 部分对应。",
++        ["Max frames"] = "最大帧数",
++        ["Mod data source"] = "模组数据源",
++        ["Most settings save as soon as you change them. Hover a setting for details."] = "大多数设置更改后立即保存。将鼠标悬停在设置上可查看详情。",
++        ["Multi frame generation (RTX 50)"] = "多帧生成（RTX 50）",
++        ["nxm:// links"] = "nxm:// 链接",
++        ["On: all update checks run automatically on startup and every hour (every 4 hours without a GitHub token), including ReShade, RenoDX, OptiScaler, Nexus Mods, and all other components."] = "开启：启动时以及每小时自动执行所有更新检查（没有 GitHub 令牌时每 4 小时一次），包括 ReShade、RenoDX、OptiScaler、Nexus Mods 及其他所有组件。",
++        ["On: OptiScaler reports an NVIDIA GPU to the game, so the game offers DLSS and OptiScaler uses its inputs. Off: no GPU spoofing. Used when OptiScaler.ini is installed."] = "开启：OptiScaler 向游戏报告 NVIDIA GPU，使游戏提供 DLSS，OptiScaler 使用其输入。关闭：不伪装 GPU。仅在安装 OptiScaler.ini 时使用。",
++        ["Only used when Admin Mode is on."] = "仅在管理员模式开启时使用。",
++        ["Open Nexus \"Mod Manager Download\" links in RHI."] = "在 RHI 中打开 Nexus 的「Mod Manager Download」链接。",
++        ["Open RHI's data folder in AppData"] = "打开 AppData 中的 RHI 数据文件夹",
++        ["Open RHI's downloads folder"] = "打开 RHI 的下载文件夹",
++        ["Open the Custom folder for your own ReShade, DLSS or Streamline DLLs"] = "打开 Custom 文件夹，放入自己的 ReShade、DLSS 或 Streamline DLL",
++        ["Open the Logs folder"] = "打开日志文件夹",
++        ["Opens github.com/settings/tokens. No boxes to tick: generate it and paste it above."] = "打开 github.com/settings/tokens。无需勾选任何权限：生成后粘贴到上方即可。",
++        ["Opens the ReShade overlay in game. Click here and press a key to change it."] = "在游戏中打开 ReShade 覆盖层。点击此处并按下按键即可更改。",
++        ["Output colour"] = "输出色彩",
++        ["Paste a GitHub Personal Access Token (PAT). It stays valid until you revoke it. No scopes needed, just generate and paste."] = "粘贴 GitHub 个人访问令牌（PAT）。在撤销之前一直有效。无需任何权限范围，生成后粘贴即可。",
++        ["Peak brightness"] = "峰值亮度",
++        ["Per monitor"] = "每台显示器",
++        ["Pick the folder RHI watches for addon downloads"] = "选择 RHI 监视插件下载的文件夹",
++        ["Power mode"] = "电源模式",
++        ["Preferred refresh rate"] = "首选刷新率",
++        ["Purge staging files"] = "清除暂存文件",
++        ["Put DLSS and Streamline versions and presets on many games at once."] = "一次为多个游戏应用 DLSS 和 Streamline 版本及预设。",
++        ["RE Framework Settings"] = "RE Framework 设置",
++        ["ReBAR size limit"] = "ReBAR 大小限制",
++        ["Recent games in tray menu"] = "托盘菜单中的最近游戏",
++        ["Refresh the current DLDSR state from registry."] = "从注册表刷新当前 DLDSR 状态。",
++        ["ReLimiter and Display Commander both limit frame rate. Install only one."] = "ReLimiter 和 Display Commander 都会限制帧率，只能安装其中一个。",
++        ["ReLimiter and OptiScaler"] = "ReLimiter 与 OptiScaler",
++        ["Remove"] = "移除",
++        ["Remove the saved token."] = "移除已保存的令牌。",
++        ["RenoDX and Luma HDR mods. Install one or the other."] = "RenoDX 和 Luma HDR 模组，二选一安装。",
++        ["Reset all game profiles"] = "重置所有游戏配置",
++        ["ReShade & RenoDX"] = "ReShade 与 RenoDX",
++        ["ReShade preset"] = "ReShade 预设",
++        ["ReShade, OptiScaler and DLSS/Streamline changes may be flagged by anti-cheat in online or multiplayer games. Remove them before playing online."] = "在线或多人游戏中，ReShade、OptiScaler 和 DLSS/Streamline 修改可能被反作弊标记。联机前请移除。",
++        ["ReShade, RenoDX, ReLimiter, Display Commander, OptiScaler, RE Framework, Luma, DXVK and DOF Fix, installed in the background."] = "在后台安装 ReShade、RenoDX、ReLimiter、Display Commander、OptiScaler、RE Framework、Luma、DXVK 和 DOF Fix。",
++        ["Resolution"] = "分辨率",
++        ["Restore per-game NVIDIA profile settings from a previous backup."] = "从之前的备份恢复每个游戏的 NVIDIA 配置。",
++        ["Restore profiles"] = "恢复配置",
++        ["RHI checks every hour while it's open (every 4 hours without a GitHub token). Check now to skip the wait."] = "RHI 打开时每小时检查一次（没有 GitHub 令牌时每 4 小时一次）。点击「立即检查」可跳过等待。",
++        ["RHI data"] = "RHI 数据",
++        ["RHI Database uses the community-maintained RHI database (recommended). RenoDX Wiki falls back to the RenoDX wiki scraper. Changing this setting triggers an immediate refresh."] = "RHI Database 使用社区维护的 RHI 数据库（推荐）。RenoDX Wiki 会回退到 RenoDX wiki 抓取器。更改此设置会立即刷新。",
++        ["RHI looks here for RenoDX addon files you download."] = "RHI 在此查找你下载的 RenoDX 插件文件。",
++        ["RHI Managed: deploy built-in shader packs to all games.\nCustom: use your own shader directory.\nOff: RHI never touches shaders on any game."] = "RHI 管理：向所有游戏部署内置着色器包。\n自定义：使用自己的着色器目录。\n关闭：RHI 不会修改任何游戏的着色器。",
++        ["RHI's own updates are never installed without asking."] = "RHI 自身的更新绝不会未经询问就安装。",
++        ["Right-click the tray icon or pinned taskbar icon to quickly launch recent games."] = "右键单击托盘图标或固定到任务栏的图标，可快速启动最近游戏。",
++        ["Runs RHI as administrator without a prompt each time. Needed for ReBAR, the DLSS indicator, Smooth Motion and Low Latency Ultra."] = "以管理员身份运行 RHI，避免每次弹提示。ReBAR、DLSS 指示器、Smooth Motion 和 Low Latency Ultra 需要此项。",
++        ["Save all per-game NVIDIA profile settings to a backup file. Useful before updating drivers."] = "将所有每游戏 NVIDIA 配置保存到备份文件。更新驱动前很有用。",
++        ["Saved state"] = "已保存状态",
++        ["Screenshot folder"] = "截图文件夹",
++        ["Select a previously captured DLDSR state to apply."] = "选择之前捕获的 DLDSR 状态进行应用。",
++        ["Shader cache size"] = "着色器缓存大小",
++        ["Shader pre-compile"] = "着色器预编译",
++        ["Shaders and addons"] = "着色器与插件",
++        ["Shared presets"] = "共享预设",
++        ["Show every game except hidden ones."] = "显示除隐藏游戏外的所有游戏。",
++        ["Show games that use neither Unreal nor Unity. Combines with the other engine and mod filters."] = "显示既不使用 Unreal 也不使用 Unity 的游戏。可与其他引擎和模组筛选组合。",
++        ["Show games with a Luma mod available. Combines with the other engine and mod filters."] = "显示有可用 Luma 模组的游戏。可与其他引擎和模组筛选组合。",
++        ["Show games with a RenoDX HDR mod, including the generic Unreal and Unity mods. Combines with the other engine and mod filters."] = "显示有 RenoDX HDR 模组的游戏，包括通用 Unreal 和 Unity 模组。可与其他引擎和模组筛选组合。",
++        ["Show games with ReShade installed."] = "显示已安装 ReShade 的游戏。",
++        ["Show games you've hidden."] = "显示已隐藏的游戏。",
++        ["Show Unity games. Combines with the other engine and mod filters."] = "显示 Unity 游戏。可与其他引擎和模组筛选组合。",
++        ["Show Unreal Engine games. Combines with the other engine and mod filters."] = "显示 Unreal Engine 游戏。可与其他引擎和模组筛选组合。",
++        ["Show your favourite games, including hidden ones."] = "显示收藏的游戏，包括隐藏的。",
++        ["Shows NVIDIA's G-Sync indicator in games when G-Sync is active. Global driver setting, affects all games."] = "G-Sync 激活时在游戏中显示 NVIDIA 的 G-Sync 指示器。全局驱动设置，影响所有游戏。",
++        ["Sign in to Nexus Mods in your browser so RHI can download mods from Nexus."] = "在浏览器中登录 Nexus Mods，以便 RHI 从 Nexus 下载模组。",
++        ["Sign out"] = "退出登录",
++        ["Sign out of GitHub."] = "退出 GitHub 登录。",
++        ["Sign out of Nexus Mods and remove the saved key."] = "退出 Nexus Mods 登录并移除已保存的密钥。",
++        ["Skips hidden games and games set to keep their own reshade.ini."] = "跳过隐藏游戏，以及设置为保留自己 reshade.ini 的游戏。",
++        ["Smoothness"] = "平滑度",
++        ["Swaps games to the newest DLSS when a new version is released. Only affects games on the previous latest version; older versions you picked yourself are left alone."] = "新版本发布后把游戏切换到最新 DLSS。只影响之前使用「最新」版本的游戏；你手动选择的旧版本不会被改动。",
++        ["Swaps games to the newest Streamline when a new version is released. Only affects games on the previous latest version; older versions you picked yourself are left alone."] = "新版本发布后把游戏切换到最新 Streamline。只影响之前使用「最新」版本的游戏；你手动选择的旧版本不会被改动。",
++        ["The GPU brand in this PC. RHI uses it to pick which OptiScaler.ini to install. DLSS inputs appears for AMD and Intel."] = "本机的 GPU 品牌。RHI 用它决定安装哪个 OptiScaler.ini。选择 AMD 或 Intel 时会显示 DLSS 输入。",
++        ["The key that opens the OptiScaler overlay in game. Saved straight away for new installs; use the button to update games that already have OptiScaler."] = "在游戏中打开 OptiScaler 覆盖层的按键。新安装会立即保存；已有 OptiScaler 的游戏请用按钮更新。",
++        ["The screen goes black for about 15 seconds when you set smoothness or apply a state."] = "设置平滑度或应用状态时，屏幕会黑屏约 15 秒。",
++        ["These can't be undone. Each asks first, with Cancel as the default."] = "这些操作无法撤销。每项都会先确认，默认按钮为「取消」。",
++        ["Token"] = "令牌",
++        ["Tools"] = "工具",
++        ["Tools & Maintenance"] = "工具与维护",
++        ["Troubleshooting"] = "故障排除",
++        ["Turn DLDSR (Deep Learning Dynamic Super Resolution) factors on or off without opening the NVIDIA Control Panel. Capture a state in the NVIDIA Control Panel first."] = "无需打开 NVIDIA 控制面板即可开关 DLDSR（深度学习动态超级分辨率）因子。请先在 NVIDIA 控制面板中捕获一个状态。",
++        ["Type or choose a folder"] = "输入或选择文件夹",
++        ["Undone automatically when the game closes."] = "游戏关闭后自动撤销。",
++        ["Update available for an installed component."] = "已安装组件有可用更新。",
++        ["Updates and how RHI behaves on your PC. Start here if you are new."] = "更新设置及 RHI 在本机上的行为。新用户请从这里开始。",
++        ["Use these if something is badly wrong. Each asks first."] = "出现严重问题时使用。每项操作都会先确认。",
++        ["Versions, presets and render scales that Quick Apply (in each game's DLSS / Streamline section) puts on a game."] = "Quick Apply（在每个游戏的 DLSS / Streamline 部分）应用到游戏的版本、预设和渲染比例。",
++        ["What happens to your screen when you launch a game through RHI, and display options without the NVIDIA Control Panel."] = "通过 RHI 启动游戏时屏幕会发生什么，以及无需 NVIDIA 控制面板的显示选项。",
++        ["When a game starts"] = "游戏启动时",
++        ["When On, RHI silently installs component updates in the background after each update check. Games that are running when an update is detected are updated once they close. Does not apply to app updates."] = "开启后，RHI 会在每次更新检查后静默在后台安装组件更新。检测到更新时正在运行的游戏会在关闭后更新。不适用于应用自身更新。",
++        ["Where ReShade saves screenshots. Type a folder and press Enter, or use Browse."] = "ReShade 保存截图的位置。输入文件夹后按 Enter，或使用「浏览」。",
++        ["Where RHI gets its mod information, and the accounts it can use."] = "RHI 获取模组信息的来源，以及可使用的账户。",
++        ["Where RHI looks up which games have mods. Changing it refreshes the library."] = "RHI 查询哪些游戏有模组的位置。更改后会刷新游戏库。",
++        ["Windows"] = "Windows",
++        ["Windows and Admin Mode"] = "Windows 与管理员模式",
++        ["Windows HDR"] = "Windows HDR",
++        ["Without a token RHI is limited to 60 GitHub requests an hour; a token raises it to 5,000."] = "没有令牌时 RHI 每小时只能发 60 次 GitHub 请求；有令牌可提升到 5,000 次。",
++        ["Write key to all OptiScaler games"] = "将按键写入所有 OptiScaler 游戏",
++        ["Write peak brightness to all games"] = "将峰值亮度写入所有游戏",
++        ["Write these to all games"] = "将这些写入所有游戏",
++        ["Write to all ReLimiter games"] = "写入所有 ReLimiter 游戏",
++        ["Writes the overlay key into OptiScaler.ini in every game that has OptiScaler installed. Skips hidden games."] = "将覆盖层按键写入每个已安装 OptiScaler 的游戏的 OptiScaler.ini。跳过隐藏游戏。",
++        ["Writes the overlay key, screenshot key, screenshot folder and effect list style into every game's reshade.ini. Skips hidden games and games set to keep their own reshade.ini."] = "将覆盖层按键、截图按键、截图文件夹和效果列表样式写入每个游戏的 reshade.ini。跳过隐藏游戏以及设置为保留自己 reshade.ini 的游戏。",
++        ["Writes the overlay key, Shared presets, DLSS hooks and Target FPS into every game's relimiter.ini. Skips hidden games."] = "将覆盖层按键、共享预设、DLSS 挂钩和目标 FPS 写入每个游戏的 relimiter.ini。跳过隐藏游戏。",
++        ["Writes the peak nits value into every game's reshade.ini. Skips hidden games and games set to keep their own reshade.ini."] = "将峰值尼特值写入每个游戏的 reshade.ini。跳过隐藏游戏以及设置为保留自己 reshade.ini 的游戏。",
++        ["Your monitor's peak brightness in nits, written to reshade.ini presets. Press Enter to save."] = "显示器的峰值亮度（尼特），写入 reshade.ini 预设。按 Enter 保存。",
++        ["·  BSD 3-Clause Licence"] = "·  BSD 3-Clause 许可证",
++        ["·  LGPL + BSD 3-Clause"] = "·  LGPL + BSD 3-Clause 许可证",
++        ["·  Zlib Licence"] = "·  Zlib 许可证",
++        ["——  Recommended  ——"] = "——  推荐  ——",
++        ["———  Frame limiters — Choose one  ———"] = "———  帧率限制器 — 任选其一  ———",
++        ["———  HDR Mods  ———"] = "———  HDR 模组  ———",
++        // ── zh-CN additions (normalized keys) ────────────────────────────────
++        ["DLDSR Apply Failed"] = "DLDSR 应用失败",
++        ["Downloaded."] = "已下载。",
++        ["Game name"] = "游戏名称",
++        ["Installing XeSS files..."] = "正在安装 XeSS 文件...",
++        ["Not now"] = "稍后",
++        ["Remove NVIDIA App override limits..."] = "移除 NVIDIA App 覆盖限制…",
++        ["Set ReBAR Enable to On to change this."] = "将 ReBAR 启用设为「开启」才能修改此项。",
++        ["Smoothness Apply Failed"] = "平滑度应用失败",
++        ["Turn Smooth Motion On to change this."] = "开启 Smooth Motion 后才能修改此项。",
++        ["Uninstall MFG Unlock first"] = "请先卸载 MFG Unlock",
++        ["1. Open NVIDIA Control Panel → Manage 3D Settings → Global Settings"] = "1. 打开 NVIDIA 控制面板 → 管理 3D 设置 → 全局设置",
++        ["20/30 FG Unlock — enables DLSS Frame Generation (up to 6X) on RTX 20 and 30 series GPUs. D3D12. Needs NVIDIA driver R580 or newer. No ASI Loader or ReShade required."] = "20/30 FG Unlock — 在 RTX 20/30 系列 GPU 上启用 DLSS 帧生成（最高 6X）。D3D12。需要 NVIDIA 驱动 R580 或更高版本。无需 ASI Loader 或 ReShade。",
++        ["32-bit game. Some components aren't available for 32-bit games."] = "32 位游戏。部分组件不支持 32 位游戏。",
++        ["64-bit game."] = "64 位游戏。",
++        ["A component is updated in a game only when it's on here and in that game's own update inclusion. Turning one off here skips it for every game, whatever the per-game setting."] = "组件只有在勾选此处且包含在该游戏自己的更新范围内时才会更新。\n在这里关闭会跳过所有游戏的该组件，无论每游戏设置如何。",
++        ["Achievements"] = "成就",
++        ["Add any OptiScaler build: a download link (GitHub, Discord or anywhere else), a zip, 7z or rar, a folder,"] = "添加任意 OptiScaler 构建：下载链接（GitHub、Discord 或任意地址）、zip/7z/rar 压缩包、文件夹，",
++        ["Add selected"] = "添加所选",
++        ["Add to collection"] = "添加到收藏集",
++        ["Addons need the addon build of ReShade. Change the ReShade channel to enable this."] = "插件需要 ReShade 的 addon 版本。请切换 ReShade 通道以启用。",
++        ["Admin required to read DLDSR state"] = "读取 DLDSR 状态需要管理员权限",
++        ["All up to date"] = "全部已是最新",
++        ["Antivirus removed a download"] = "杀毒软件删除了下载文件",
++        ["Apply DLDSR state?"] = "应用 DLDSR 状态？",
++        ["Applying..."] = "正在应用...",
++        ["Artwork"] = "封面图",
++        ["Ask GitHub for the newest release now, instead of waiting for the next automatic check."] = "立即向 GitHub 查询最新版本，而不必等待下一次自动检查。",
++        ["Before installing OptiScaler, please configure your GPU type and DLSS input (AMD/Intel only) settings in Settings → Components → OptiScaler. This ensures OptiScaler is configured correctly for your hardware."] = "安装 OptiScaler 前，请先在 设置 → 组件 → OptiScaler 中配置 GPU 类型和 DLSS 输入（仅 AMD/Intel）。\n\n这样可确保 OptiScaler 根据你的硬件正确配置。",
++        ["Capture"] = "捕获",
++        ["Capture DLDSR State"] = "捕获 DLDSR 状态",
++        ["Capture Idle Baseline"] = "捕获空闲基线",
++        ["Change"] = "更改",
++        ["Change shader management?"] = "更改着色器管理方式？",
++        ["Check the exe: more than one looks like the game."] = "检查 exe：有多个文件看起来像游戏主程序。",
++        ["Choose folder..."] = "选择文件夹...",
++        ["Choose RTX Encore DLL name"] = "选择 RTX Encore DLL 名称",
++        ["Choose Universal MFG Unlocker DLL name"] = "选择 Universal MFG Unlocker DLL 名称",
++        ["Clear"] = "清除",
++        ["Clear the launch executable and launch arguments for this game. The executable goes back to auto-detection."] = "清除此游戏的启动程序和启动参数。启动程序将恢复自动检测。",
++        ["Click again to delete this profile."] = "再次点击以删除此配置。",
++        ["Configure Auto HDR"] = "配置自动 HDR",
++        ["Controller support"] = "手柄支持",
++        ["Controls the sharpening/smoothing applied during downscale. 100 = no sharpening (pure Lanczos downscale). Lower values add sharpening — the image gets progressively sharper as you reduce it."] = "控制缩放时应用的锐化/平滑。100 = 不锐化（纯 Lanczos 缩放）。数值越低锐化越强——降低数值会让画面逐渐变锐利。",
++        ["Couldn't change DLSS files"] = "无法更改 DLSS 文件",
++        ["Create"] = "创建",
++        ["Create Desktop Shortcut"] = "创建桌面快捷方式",
++        ["Create missing profiles?"] = "创建缺失的配置？",
++        ["Custom game folders"] = "自定义游戏文件夹",
++        ["Custom OptiScaler builds"] = "自定义 OptiScaler 构建",
++        ["Daily Use"] = "日常使用",
++        ["Default = application controls frame generation. Fixed = always generate a fixed multiplier of frames. Dynamic = generate up to a target frame rate."] = "默认 = 由应用控制帧生成。固定 = 始终生成固定倍数的帧。动态 = 生成到目标帧率为止。",
++        ["Default version"] = "默认版本",
++        ["Default: leaves the game's files as they are."] = "默认：保持游戏文件不变。",
++        ["Delete collection"] = "删除收藏集",
++        ["Delete DLDSR Capture"] = "删除 DLDSR 捕获",
++        ["Delete?"] = "删除？",
++        ["Delete…"] = "删除…",
++        ["Deleting..."] = "正在删除...",
++        ["Discussion / Instructions"] = "讨论 / 说明",
++        ["Dismiss"] = "忽略",
++        ["DLDSR (Deep Learning Dynamic Super Resolution) renders games at higher resolutions and downscales with AI for sharper image quality. This feature lets you switch DLDSR presets without opening NVIDIA Control Panel."] = "DLDSR（深度学习动态超级分辨率）以更高分辨率渲染游戏，再用 AI 缩放，获得更锐利的画质。此功能让你无需打开 NVIDIA 控制面板即可切换 DLDSR 预设。",
++        ["DLDSR Capture Failed"] = "DLDSR 捕获失败",
++        ["DLDSR Control"] = "DLDSR 控制",
++        ["DLSS NR DLL"] = "DLSS NR DLL",
++        ["DLSS preset applied through the NVIDIA driver profile. Default leaves the game's preset unchanged."] = "通过 NVIDIA 驱动配置应用的 DLSS 预设。默认会保持游戏预设不变。",
++        ["Drag to reorder sections"] = "拖动以重新排列分区",
++        ["Drag to resize the covers. Double-click to reset."] = "拖动以调整封面大小。双击重置。",
++        ["DSR Smoothness"] = "DSR 平滑度",
++        ["e.g. DLDSR 2.25x + 1.78x"] = "例如 DLDSR 2.25x + 1.78x",
++        ["e.g. hotkey, HDR, ReBAR"] = "例如 热键、HDR、ReBAR",
++        ["e.g. Racing"] = "例如 竞速",
++        ["Early access to RenoDX mods:"] = "抢先体验 RenoDX 模组：",
++        ["EmptyWS + Rebuild (minimised)"] = "EmptyWS + 重建（最小化）",
++        ["EmptyWS + Rebuild (visible)"] = "EmptyWS + 重建（可见）",
++        ["Enable Admin Mode"] = "启用管理员模式",
++        ["Enter a label for this DLDSR configuration. First enable the DLDSR factors you want in NVIDIA Control Panel, then capture here."] = "为此 DLDSR 配置输入标签。\n请先在 NVIDIA 控制面板中启用想要的 DLDSR 因子，然后在此捕获。",
++        ["Exe"] = "可执行文件",
++        ["Failed to apply DLDSR state. Check logs for details."] = "应用 DLDSR 状态失败。详情请查看日志。",
++        ["Failed to set DSR smoothness. Check logs for details."] = "设置 DSR 平滑度失败。详情请查看日志。",
++        ["Find a setting"] = "查找设置",
++        ["Fixed: exact frame multiplier (2x-6x). Dynamic: maximum frames the driver may generate (Up to 3x-6x). 50 Series GPUs only for 3x+."] = "固定：精确的帧倍数（2x-6x）。动态：驱动可生成的最大帧数（最高 3x-6x）。3x 以上仅限 50 系列 GPU。",
++        ["Folder not found"] = "找不到文件夹",
++        ["Folders RHI checks for games from outside the supported stores, such as DRM-free downloads."] = "RHI 在这些文件夹中查找非受支持商店的游戏，例如 DRM-free 下载。",
++        ["Freeze Diagnostics"] = "冻结诊断",
++        ["From a file..."] = "从文件...",
++        ["From a folder..."] = "从文件夹...",
++        ["From the link above"] = "从上方链接",
++        ["Game folder not found"] = "找不到游戏文件夹",
++        ["Games with an Ultra+ graphics mod on theultraplace.com."] = "在 theultraplace.com 上有 Ultra+ 画质模组的游戏。",
++        ["Games you took out with Management › Remove from RHI. Open the list to put one back."] = "你用「管理 › 从 RHI 移除」拿掉的游戏。打开列表可放回。",
++        ["Get on Nexus Mods"] = "前往 Nexus Mods",
++        ["Getting the NR DLL..."] = "正在获取 NR DLL...",
++        ["GITC Uplift guide →"] = "GITC Uplift 指南 →",
++        ["GitHub sign-in expired. Add a token below to restore the 5,000 req/hr limit."] = "GitHub 登录已过期。在下方添加令牌以恢复每小时 5,000 次限额。",
++        ["Go to this setting"] = "转到此设置",
++        ["Got it"] = "知道了",
++        ["High values may look washed out"] = "数值过高可能显得发白",
++        ["How DLDSR Control Works"] = "DLDSR 控制工作原理",
++        ["If a game has no matching NVIDIA driver profile, create one so the presets can be applied."] = "如果游戏没有匹配的 NVIDIA 驱动配置，请创建一个，以便应用预设。",
++        ["Ignore selected"] = "忽略所选",
++        ["Include this game"] = "包含此游戏",
++        ["Initial Setup (One Time)"] = "初始设置（一次性）",
++        ["Install ReShade first — MFG Unlock requires it"] = "请先安装 ReShade —— MFG Unlock 需要它",
++        ["Installing GITC Uplift..."] = "正在安装 GITC Uplift...",
++        ["Interface size"] = "界面大小",
++        ["Internal render resolution as a percentage of output resolution, set through the NVIDIA driver profile."] = "内部渲染分辨率占输出分辨率的百分比，通过 NVIDIA 驱动配置设置。",
++        ["Invalid Label"] = "标签无效",
++        ["Leave them"] = "保留它们",
++        ["link your Discord account to Ko-fi before donating. Donations made without linking first can't be credited afterwards."] = "捐赠前请先将 Discord 账号绑定到 Ko-fi。未先绑定的捐赠事后无法补记。",
++        ["Load this profile's shader selection."] = "加载此配置的着色器选择。",
++        ["Local file."] = "本地文件。",
++        ["Local files."] = "本地文件。",
++        ["Low Latency is locked to Ultra while Smooth Motion is on. Turn Smooth Motion Off to change this."] = "Smooth Motion 开启时，低延迟被锁定为 Ultra。关闭 Smooth Motion 才能修改。",
++        ["Makes RHI's window smaller or larger without changing Windows' scaling."] = "在不改变 Windows 缩放的情况下放大或缩小 RHI 窗口。",
++        ["MFG Unlock"] = "MFG Unlock",
++        ["MFG Unlock (addon) is already installed and conflicts with Universal MFG Unlocker. Remove it from the addon picker first."] = "已安装 MFG Unlock（插件），与 Universal MFG Unlocker 冲突。请先从插件选择器中移除。",
++        ["MFG Unlock (addon) is installed and conflicts. Remove it from the addon picker first."] = "已安装 MFG Unlock（插件），存在冲突。请先从插件选择器中移除。",
++        ["MFG Unlock — unlocks DLSS Multi Frame Generation (3x/4x/6x) on RTX 40 Series GPUs, brings DLSS frame generation (DLSS-G and XMX) to RTX 20 and 30 Series (experimental), and runs Intel XeSS frame generation (XeMFG, 2x to 6x) on RTX 20 to 50 Series. Requires ReShade."] = "MFG Unlock — 在 RTX 40 系列 GPU 上解锁 DLSS 多帧生成（3x/4x/6x），为 RTX 20/30 系列带来 DLSS 帧生成（DLSS-G 和 XMX，实验性），并在 RTX 20-50 系列上运行 Intel XeSS 帧生成（XeMFG，2x-6x）。需要 ReShade。",
++        ["Mods not moved"] = "模组未移动",
++        ["Mods stay in the old folder"] = "模组保留在旧文件夹",
++        ["Move"] = "移动",
++        ["Move left"] = "左移",
++        ["Move right"] = "右移",
++        ["Move this game's installed mods to the new folder?"] = "将此游戏已安装的模组移动到新文件夹？",
++        ["Multi Frame Gen needs access to NVIDIA driver settings, which isn't available on this PC."] = "多帧生成需要访问 NVIDIA 驱动设置，但此 PC 上不可用。",
++        ["New collection. Add games to it from a game's menu (right-click a game)."] = "新建收藏集。在游戏菜单（右键游戏）中添加游戏。",
++        ["New collection…"] = "新建收藏集…",
++        ["No _storage_ folder in the game folder."] = "游戏文件夹中没有 _storage_ 文件夹。",
++        ["No custom builds yet."] = "还没有自定义构建。",
++        ["No DLDSR-capable monitors detected"] = "未检测到支持 DLDSR 的显示器",
++        ["No folders yet."] = "还没有文件夹。",
++        ["No games have been removed. Use Remove from RHI on a game's Management section to take it out of the list."] = "没有已移除的游戏。使用游戏「管理」部分的「从 RHI 移除」将其移出列表。",
++        ["No patch notes available."] = "暂无更新说明。",
++        ["Nothing to restore: no DLLs have been swapped and no presets or overrides are set for this game."] = "没有可还原的内容：此游戏没有替换过 DLL，也没有设置预设或覆盖。",
++        ["NVIDIA App"] = "NVIDIA App",
++        ["On: downloads the addon if needed and adds it to the global addon set used by games set to Global addons."] = "开启：按需下载插件，并将其加入使用「全局插件」的游戏所用的全局插件集。",
++        ["Open folder"] = "打开文件夹",
++        ["Open MFG Unlock GitHub page"] = "打开 MFG Unlock GitHub 页面",
++        ["Open RTX Encore GitHub page"] = "打开 RTX Encore GitHub 页面",
++        ["Open the Universal MFG Unlocker GitHub page"] = "打开 Universal MFG Unlocker GitHub 页面",
++        ["Override the detected graphics API for this game. Auto uses PE header scanning. Reset Overrides reverts to auto-detection."] = "覆盖此游戏检测到的图形 API。\n自动 使用 PE 头扫描。重置覆盖 会恢复自动检测。",
++        ["Override the Display Commander DLL file name. Choose -------- for the default name."] = "覆盖 Display Commander DLL 文件名。选择 -------- 使用默认名称。",
++        ["Override the DLSS render resolution scale. Off = game controls the scale. Named presets set a fixed percentage. Custom lets you enter any value from 33-100%."] = "覆盖 DLSS 渲染分辨率比例。关闭 = 由游戏控制比例。\n命名预设使用固定百分比。自定义 可输入 33-100% 的任意值。",
++        ["Override the global ReShade build channel for this game. Vulkan games: changing this affects ALL Vulkan games."] = "覆盖此游戏的全局 ReShade 构建通道。\nVulkan 游戏：更改此项会影响所有 Vulkan 游戏。",
++        ["Override the ReShade build channel for this game. Vulkan games: changing this affects ALL Vulkan games."] = "覆盖此游戏的 ReShade 构建通道。\nVulkan 游戏：更改此项会影响所有 Vulkan 游戏。",
++        ["Override the ReShade DLL filename. Select a name to rename the installed DLL immediately. Select -------- to revert to the default name."] = "覆盖 ReShade DLL 文件名。选择名称会立即重命名已安装的 DLL；选择 -------- 恢复默认名称。",
++        ["Paste a download link (GitHub release file, Discord attachment, ...)"] = "粘贴下载链接（GitHub release 文件、Discord 附件等）",
++        ["PAT cleared."] = "PAT 已清除。",
++        ["PAT file active — 5,000 req/hr (persists across restarts)"] = "PAT 文件已生效 — 5,000 次/小时（重启后保留）",
++        ["Please enter a label for the capture."] = "请输入捕获的标签。",
++        ["Please enter a token first."] = "请先输入令牌。",
++        ["Power management, G-Sync control and the driver frame rate limit for this game."] = "此游戏的电源管理、G-Sync 控制和驱动帧率限制。",
++        ["Preset applied through each game's NVIDIA driver profile. None leaves each game's current preset unchanged."] = "通过每个游戏的 NVIDIA 驱动配置应用预设。None 会保持每个游戏的当前预设不变。",
++        ["Progress, unlock dates, icons and rarity, read from each store's files on this PC. Spotlight layout only."] = "进度、解锁日期、图标和稀有度，从本机各商店的文件读取。仅限 Spotlight 布局。",
++        ["Purge"] = "清除",
++        ["Register RHI"] = "注册 RHI",
++        ["Remove from RHI"] = "从 RHI 移除",
++        ["Remove limits"] = "移除限制",
++        ["Remove MFG Unlock from this game"] = "从此游戏移除 MFG Unlock",
++        ["Remove NVIDIA App override limits?"] = "移除 NVIDIA App 覆盖限制？",
++        ["Remove old Nightly builds"] = "移除旧的 Nightly 构建",
++        ["Remove RTX Encore from this game"] = "从此游戏移除 RTX Encore",
++        ["Remove the installed Neural Rendering method from this game."] = "从此游戏移除已安装的神经渲染方法。",
++        ["Remove Universal MFG Unlocker from this game"] = "从此游戏移除 Universal MFG Unlocker",
++        ["Removed games"] = "已移除的游戏",
++        ["Rename or clear this slot"] = "重命名或清除此槽位",
++        ["Rename profile."] = "重命名配置。",
++        ["Rename…"] = "重命名…",
++        ["Render scale as a percentage of output resolution (33 to 100). Enter to apply, Esc to cancel."] = "渲染比例占输出分辨率的百分比（33-100）。Enter 应用，Esc 取消。",
++        ["Reset All"] = "全部重置",
++        ["Reset DLL names"] = "重置 DLL 名称",
++        ["Reset install folder"] = "重置安装文件夹",
++        ["Reset launch options"] = "重置启动选项",
++        ["Reset name"] = "重置名称",
++        ["ReShade is installed in this game. Universal MFG Unlocker's XeSS frame generation (\"XeMFG standalone\" in its menu)"] = "此游戏已安装 ReShade。Universal MFG Unlocker 的 XeSS 帧生成（其菜单中的「XeMFG standalone」）",
++        ["Restart as Admin"] = "以管理员身份重启",
++        ["Restore puts the game back in your list."] = "恢复会将游戏放回列表。",
++        ["Restore this game's NVIDIA driver profile to factory defaults. Removes all custom settings (presets, render scale, MFG, driver overrides). This action is irreversible."] = "将此游戏的 NVIDIA 驱动配置恢复为出厂默认。会移除所有自定义设置（预设、渲染比例、MFG、驱动覆盖）。此操作不可撤销。",
++        ["Revert all DLL names back to defaults and clear saved overrides."] = "将所有 DLL 名称恢复默认，并清除已保存的覆盖。",
++        ["RHI checks every hour with a GitHub token, every 4 hours without (GitHub allows far fewer requests without one)."] = "有 GitHub 令牌时每小时检查一次，没有时每 4 小时一次（没有令牌时 GitHub 允许的请求数少得多）。",
++        ["RHI found games in your custom game folders (Settings › Tools & Maintenance) that aren't in your list yet. Click to choose which to add."] = "RHI 在自定义游戏文件夹（设置 › 工具与维护）中发现了尚未加入列表的游戏。点击选择要添加的游戏。",
++        ["RHI keeps a copy of every OptiScaler Nightly build it downloads, about 200-300 MB each."] = "RHI 会保留每个下载过的 OptiScaler Nightly 构建副本，每个约 200-300 MB。",
++        ["RHI will change the NVIDIA App's settings files so it stops undoing DLSS overrides on games NVIDIA hasn't approved. A backup of the files is kept."] = "RHI 会修改 NVIDIA App 的设置文件，使其不再撤销 NVIDIA 未批准游戏的 DLSS 覆盖。文件会保留备份。",
++        ["RHI will create an NVIDIA driver profile for every game in your library that doesn't have one. Hidden games are skipped and existing profiles are not changed."] = "RHI 会为库中每个没有 NVIDIA 驱动配置的游戏创建配置。隐藏游戏会跳过，现有配置不会更改。",
++        ["RHI will update the shader files in all your ReShade games straight away to match this setting."] = "RHI 会立即更新所有 ReShade 游戏中的着色器文件以匹配此设置。",
++        ["RTX Encore"] = "RTX Encore",
++        ["RTX Encore — frame generation X2-X6, Smooth Motion and Neural Rendering for RTX 20/30/40."] = "RTX Encore — 为 RTX 20/30/40 提供 X2-X6 帧生成、Smooth Motion 和神经渲染。",
++        ["Scan now"] = "立即扫描",
++        ["Scanning..."] = "正在扫描...",
++        ["Search every version's notes (e.g. OptiScaler, crash, Vulkan)"] = "搜索所有版本的说明（例如 OptiScaler、崩溃、Vulkan）",
++        ["Search games, or type RenoDX, Luma or Ultra+ to filter…"] = "搜索游戏，或输入 RenoDX、Luma、Ultra+ 进行筛选…",
++        ["Search notes"] = "搜索说明",
++        ["Search results"] = "搜索结果",
++        ["Searches setting names, descriptions and tooltips as you type. Enter searches straight away, Esc clears."] = "输入时搜索设置名称、描述和提示。Enter 立即搜索，Esc 清除。",
++        ["Select a saved state from the dropdown and click Apply. RHI writes the registry values directly and triggers a display reset (~15 seconds of blackout while the driver reinitializes)."] = "从下拉框选择已保存状态并点击应用。RHI 会直接写入注册表值并触发显示重置（驱动重新初始化时约 15 秒黑屏）。",
++        ["Select the filename for RTX Encore. Names in use by RHI components are disabled. Amber names already have a file on disk — RHI will back it up and restore on uninstall."] = "选择 RTX Encore 的文件名。RHI 组件正在使用的名称不可选。琥珀色名称表示磁盘上已有文件——RHI 会备份并在卸载时恢复。",
++        ["Select the filename to deploy the Universal MFG Unlocker DLL as. Choose a name the game loads early, and avoid names already used by other mods."] = "选择 Universal MFG Unlocker DLL 的部署文件名。选择游戏会较早加载的名称，避免使用其他模组已占用的名称。",
++        ["Setting..."] = "正在设置...",
++        ["Show or hide the shader files in this folder."] = "显示或隐藏此文件夹中的着色器文件。",
++        ["Show or hide the shader files in this pack."] = "显示或隐藏此包中的着色器文件。",
++        ["Show your achievements on the Spotlight page. Off by default; turn on the stores you want to see."] = "在 Spotlight 页面显示成就。默认关闭；开启你想查看的商店。",
++        ["Stops the NVIDIA App resetting DLSS presets and versions on games it doesn't support. Run again after a driver or NVIDIA App update."] = "阻止 NVIDIA App 重置其不支持游戏的 DLSS 预设和版本。驱动或 NVIDIA App 更新后请再次运行。",
++        ["Stores"] = "商店",
++        ["Stress Loop (30 passes)"] = "压力循环（30 轮）",
++        ["Swapping GITC Uplift..."] = "正在切换 GITC Uplift...",
++        ["Test Dispatcher Exception"] = "测试 Dispatcher 异常",
++        ["Test Fast Restart (5s)"] = "测试快速重启（5 秒）",
++        ["Test freeze detection. Each button blocks the UI thread differently. Check the session log - IDLE = waiting on lock/native call, PEGGED = layout or compute loop. Native Block tests the walk on a pure-native wait (no managed frames). Idle Baseline captures the stack while the UI is healthy."] = "测试冻结检测。每个按钮以不同方式阻塞 UI 线程。查看会话日志——IDLE = 等待锁/原生调用，PEGGED = 布局或计算循环。Native Block 在纯原生等待（无托管帧）下测试栈遍历。Idle Baseline 在 UI 健康时捕获堆栈。",
++        ["Test IDLE (30s sleep)"] = "测试 IDLE（休眠 30 秒）",
++        ["Test Known Sig Freeze (10s)"] = "测试已知特征冻结（10 秒）",
++        ["Test Native Block (30s)"] = "测试原生阻塞（30 秒）",
++        ["Test PEGGED (10s spin)"] = "测试 PEGGED（自旋 10 秒）",
++        ["The display name for this game. Edit and press Enter to rename. Reset name reverts to the auto-detected store name."] = "此游戏的显示名称。编辑后按 Enter 重命名。重置名称会恢复为自动检测到的商店名称。",
++        ["The exe RHI launches and installs next to. The best match is picked; change it if it's a launcher or the wrong version."] = "RHI 启动并在其旁边安装的 exe。会自动选择最佳匹配；如果它是启动器或版本不对，请更改。",
++        ["The name shown in RHI. Use the game's real title so RHI can find its mods."] = "RHI 中显示的名称。请使用游戏真实标题，以便 RHI 找到其模组。",
++        ["The NR Cost Scaler is in the game folder."] = "NR Cost Scaler 位于游戏文件夹中。",
++        ["The OptiScaler version installed in games where you haven't picked one in the game's OptiScaler ⚙."] = "在未于游戏 OptiScaler ⚙ 中选择版本的游戏中安装的 OptiScaler 版本。",
++        ["The program RHI starts when you click Launch. Detected automatically unless you set one below."] = "点击「启动」时 RHI 运行的程序。除非在下方指定，否则自动检测。",
++        ["The target output frame rate for dynamic frame generation. Only active in Dynamic mode."] = "动态帧生成的目标输出帧率。仅在动态模式下生效。",
++        ["These folders in your custom game folders look like games that aren't in your list."] = "自定义游戏文件夹中的这些文件夹看起来像尚未加入列表的游戏。",
++        ["This game has notes, see Info."] = "此游戏有备注，见「信息」。",
++        ["Token should start with ghp_ or github_pat_"] = "令牌应以 ghp_ 或 github_pat_ 开头",
++        ["Token validation failed — check the token and try again."] = "令牌验证失败——请检查令牌后重试。",
++        ["Universal MFG Unlocker"] = "Universal MFG Unlocker",
++        ["Universal MFG Unlocker (formerly RTX 40 MFG Unlock) — DLSS Multi Frame Generation beyond 2x (up to 6x) on RTX 40 and RTX 30 Series GPUs (RTX 20 experimental), plus XeSS frame generation (XeMFG) on any GPU. Standalone DLL, no ASI Loader required. RHI also installs Intel's XeSS files that XeMFG needs."] = "Universal MFG Unlocker（原 RTX 40 MFG Unlock）—— 在 RTX 40 和 RTX 30 系列 GPU（RTX 20 实验性）上实现超过 2x 的 DLSS 多帧生成（最高 6x），并在任意 GPU 上提供 XeSS 帧生成（XeMFG）。独立 DLL，无需 ASI Loader。RHI 还会安装 XeMFG 所需的 Intel XeSS 文件。",
++        ["Universal MFG Unlocker is already installed and conflicts. Remove it first."] = "已安装 Universal MFG Unlocker，存在冲突。请先移除。",
++        ["Update inclusion"] = "更新范围",
++        ["Update the games using it?"] = "更新使用它的游戏？",
++        ["Use an Xbox or PlayStation controller in the Spotlight layout, only while RHI is the active window."] = "在 Spotlight 布局中使用 Xbox 或 PlayStation 手柄，仅当 RHI 为活动窗口时生效。",
++        ["Use wiki: look this game up on the RenoDX and Luma wikis to find its mod. Ignore wiki: skip wiki lookups for this game."] = "使用 wiki：在 RenoDX 和 Luma wiki 中查找此游戏的模组。\n忽略 wiki：跳过此游戏的 wiki 查询。",
++        ["Validating..."] = "正在验证...",
++        ["View Notes"] = "查看备注",
++        ["Waiting for RHI's game scan to finish..."] = "正在等待 RHI 游戏扫描完成...",
++        ["Which components Update All updates for this game. This setting applies to this game only;"] = "此游戏的「全部更新」会更新哪些组件。此设置仅适用于此游戏；",
++        ["XeMFG and ReShade"] = "XeMFG 与 ReShade",
++        ["Your own presets. Pick a slot, then Apply it to this game or save the current settings into it."] = "你自己的预设。选择一个槽位，然后应用到当前游戏，或将当前设置保存进去。",
++        // ── zh-CN additions (normalized keys) ────────────────────────────────
++        ["Click to open GitHub releases page"] = "点击打开 GitHub Releases 页面",
++        ["Place your .dll files in:"] = "将你的 .dll 文件放入：",
++        ["Backup profiles first."] = "请先备份配置。",
++        ["No backup file found at:"] = "未找到备份文件：",
++        ["Select the folder to install:"] = "选择要安装的文件夹：",
++        ["This archive contains multiple game folders."] = "此压缩包包含多个游戏文件夹。",
++        ["Choose which proxy DLL the game loads. Start with version.dll; if frame generation doesn't appear in the game, reinstall with the next name in the list. dxgi.dll and d3d12.dll are a last resort and don't work in Vulkan games."] = "选择游戏加载的代理 DLL。先用 version.dll；如果游戏中没有出现帧生成，请用列表中的下一个名称重新安装。dxgi.dll 和 d3d12.dll 是最后手段，且在 Vulkan 游戏中无效。",
++        ["Also install NVIDIA's nvngx_dlssnr.dll with this build, and show the Neural Rendering settings in its OptiScaler ⚙."] = "同时随此构建安装 NVIDIA 的 nvngx_dlssnr.dll，并在其 OptiScaler ⚙ 中显示神经渲染设置。",
++        ["Install the newest release on this game. Your OptiScaler.ini settings are kept."] = "在此游戏上安装最新版本。你的 OptiScaler.ini 设置会保留。",
++        ["Replace this game's OptiScaler.ini with a fresh copy? Most settings above are reset."] = "用全新副本替换此游戏的 OptiScaler.ini？上方的大部分设置会被重置。",
++        ["Replaces this game's OptiScaler.ini with a fresh copy of RHI's template. Use it if the game has no OptiScaler.ini yet or you want to start over."] = "用 RHI 模板的全新副本替换此游戏的 OptiScaler.ini。适用于游戏还没有 OptiScaler.ini 或想重新开始的情况。",
++        ["dgVoodoo2 — translates DX9 calls to DX11, enabling ReShade compute shaders and DLSS5 Feeder on DX9 games. Deploys D3D9.dll + dgVoodoo.conf to the game folder."] = "dgVoodoo2 — 将 DX9 调用转换为 DX11，使 DX9 游戏能够使用 ReShade 计算着色器和 DLSS5 Feeder。\n会将 D3D9.dll + dgVoodoo.conf 部署到游戏文件夹。",
++
 +    };
 +}
 diff --git a/RenoDXCommander/Services/UpdateService.cs b/RenoDXCommander/Services/UpdateService.cs
