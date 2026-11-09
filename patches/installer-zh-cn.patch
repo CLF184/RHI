@@ -1,5 +1,5 @@
 diff --git a/RHI Setup.iss b/RHI Setup.iss
-index bfb1ad99225658b5750686ff953726126a11c9ce..b19240b950046f4dec13a21675260e4aed3634a4 100644
+index bfb1ad99225658b5750686ff953726126a11c9ce..0e562444e84feeca9aae3f10de0a33cad79bebcc 100644
 --- a/RHI Setup.iss	
 +++ b/RHI Setup.iss	
 @@ -34,8 +34,10 @@ OutputBaseFilename=RHI-Setup
@@ -9,7 +9,7 @@ index bfb1ad99225658b5750686ff953726126a11c9ce..b19240b950046f4dec13a21675260e4a
 +ShowLanguageDialog=no
  
  [Languages]
-+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
++Name: "chinesesimplified"; MessagesFile: "installer\ChineseSimplified.isl"
  Name: "english"; MessagesFile: "compiler:Default.isl"
  
  [Tasks]

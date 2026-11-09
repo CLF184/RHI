@@ -6,6 +6,7 @@
 
 - `patches/zh-cn.patch`：应用汉化（约 4500 行 diff）
 - `patches/installer-zh-cn.patch`：安装器中文语言
+- `installer/ChineseSimplified.isl`：Inno Setup 官方中文语言文件（Chocolatey 包未附带，单独放入仓库）
 - `.github/workflows/zh-cn-sync.yml` + `.github/scripts/`：自动同步、构建、发布
 - 说明文档与打包用的 `README-patch.md`
 

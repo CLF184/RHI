@@ -134,6 +134,12 @@ jobs:
               }
             }
 
+            # Inno Setup's Chocolatey package omits ChineseSimplified.isl, so
+            # ship it with the repo and place it where the .iss expects it.
+            $langDir = Join-Path $build 'installer'
+            New-Item -ItemType Directory -Force $langDir | Out-Null
+            Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'installer\ChineseSimplified.isl') $langDir -Force
+
             git add -A
             git commit -m "zhCN: apply localization patches to $env:TARGET (upstream $env:TARGET_SHA)"
             if ($LASTEXITCODE -ne 0) { throw 'git commit failed after applying the patches' }
