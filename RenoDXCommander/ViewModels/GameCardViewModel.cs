@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Dispatching;
 using RenoDXCommander.Models;
+using RenoDXCommander.Services;
 
 namespace RenoDXCommander.ViewModels;
 
@@ -8,6 +9,7 @@ public partial class GameCardViewModel : ObservableObject
 {
     // ── Dispatcher for UI thread access from background tasks ─────────────────────
     public DispatcherQueue? DispatcherQueue { get; set; }
+    private static string L(string text) => LocalizationService.Text(text);
 
     // ── Core observable properties ────────────────────────────────────────────────
     [ObservableProperty] private string _gameName = "";

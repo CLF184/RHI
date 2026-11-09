@@ -10,6 +10,49 @@ namespace RenoDXCommander;
 
 public partial class DetailPanelBuilder
 {
+    // (DcDllOverrideNames now lives in DetailPanelBuilder.Overrides.Dxvk.cs upstream.)
+
+    private sealed class LocalizedComboOption(string value)
+    {
+        public string Value { get; } = value;
+
+        public override string ToString() => LocalizationService.Text(Value);
+    }
+
+    private static IReadOnlyList<LocalizedComboOption> LocalizedOptions(IEnumerable<string> values) =>
+        values.Select(value => new LocalizedComboOption(value)).ToArray();
+
+    private static string? SelectedComboValue(ComboBox comboBox)
+    {
+        return comboBox.SelectedItem switch
+        {
+            LocalizedComboOption option => option.Value,
+            ComboBoxItem { Tag: string tag } => tag,
+            ComboBoxItem { Content: string content } => content,
+            string value => value,
+            _ => comboBox.SelectedItem?.ToString(),
+        };
+    }
+
+    private static void SetSelectedComboValue(ComboBox comboBox, string value)
+    {
+        IEnumerable<object?> items = comboBox.ItemsSource is System.Collections.IEnumerable source
+            ? source.Cast<object?>()
+            : comboBox.Items.Cast<object?>();
+
+        var match = items.FirstOrDefault(item => item switch
+        {
+            LocalizedComboOption option => option.Value.Equals(value, StringComparison.OrdinalIgnoreCase),
+            ComboBoxItem { Tag: string tag } => tag.Equals(value, StringComparison.OrdinalIgnoreCase),
+            ComboBoxItem { Content: string content } => content.Equals(value, StringComparison.OrdinalIgnoreCase),
+            string text => text.Equals(value, StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        });
+
+        if (match != null)
+            comboBox.SelectedItem = match;
+    }
+
     private sealed class OverridesPanelCtx
     {
         public required GameCardViewModel Card;
@@ -594,17 +637,17 @@ public partial class DetailPanelBuilder
         var wikiExcludeItems = new[] { WikiIncludedItem, WikiExcludedItem };
         var wikiExcludeCombo = new ComboBox
         {
-            ItemsSource = wikiExcludeItems,
-            SelectedItem = _window.ViewModel.IsWikiExcluded(gameName) ? WikiExcludedItem : WikiIncludedItem,
+            ItemsSource = LocalizedOptions(wikiExcludeItems),
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        SetSelectedComboValue(wikiExcludeCombo, _window.ViewModel.IsWikiExcluded(gameName) ? "Excluded" : "Included");
         ToolTipService.SetToolTip(wikiExcludeCombo,
             "Use wiki: look this game up on the RenoDX and Luma wikis to find its mod.\nIgnore wiki: skip wiki lookups for this game.");
         wikiExcludeCombo.SelectionChanged += (s, ev) =>
         {
-            var selected = wikiExcludeCombo.SelectedItem as string;
-            bool shouldExclude = selected == WikiExcludedItem;
+            var selected = SelectedComboValue(wikiExcludeCombo);
+            bool shouldExclude = selected == "Excluded";
             if (shouldExclude != _window.ViewModel.IsWikiExcluded(capturedName))
                 _window.ViewModel.ToggleWikiExclusion(capturedName);
         };
@@ -815,11 +858,11 @@ public partial class DetailPanelBuilder
 
         var shaderModeCombo = new ComboBox
         {
-            ItemsSource = shaderModeItems,
-            SelectedItem = effectiveShaderDisplay,
+            ItemsSource = LocalizedOptions(shaderModeItems),
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        SetSelectedComboValue(shaderModeCombo, effectiveShaderDisplay);
         ToolTipService.SetToolTip(shaderModeCombo,
             "Global = use global shader selection. Custom = use custom shader directories. Select = pick per-game packs. Off = no shaders.");
 
@@ -840,7 +883,7 @@ public partial class DetailPanelBuilder
         shaderModeCombo.SelectionChanged += async (s, ev) =>
         {
             if (shaderComboInitializing) return;
-            var selected = shaderModeCombo.SelectedItem as string;
+            var selected = SelectedComboValue(shaderModeCombo);
             if (string.IsNullOrEmpty(selected)) return;
             CrashReporter.Log($"[DetailPanelBuilder.ShaderMode] '{capturedName}' selection changed to: '{selected}'");
 
@@ -874,7 +917,7 @@ public partial class DetailPanelBuilder
                     var currentMode = _window.ViewModel.GetPerGameShaderMode(capturedName, card.Source);
                     var revertTo = currentMode == "Select" ? "Select" : (currentMode == "Off" ? "Off" : (currentMode == "Custom" ? "Custom" : "Global"));
                     shaderComboInitializing = true;
-                    shaderModeCombo.SelectedItem = revertTo;
+                    SetSelectedComboValue(shaderModeCombo, effectiveShaderDisplay);
                     shaderComboInitializing = false;
                 }
                 return;
@@ -1001,17 +1044,17 @@ public partial class DetailPanelBuilder
 
         var bitnessCombo = new ComboBox
         {
-            ItemsSource = bitnessItems,
-            SelectedItem = defaultBitnessSelection,
+            ItemsSource = LocalizedOptions(bitnessItems),
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        SetSelectedComboValue(bitnessCombo, defaultBitnessSelection);
         ToolTipService.SetToolTip(bitnessCombo,
             "Override the auto-detected bitness for this game. Auto uses PE header detection. 32-bit or 64-bit forces the value.");
 
         bitnessCombo.SelectionChanged += (s, e) =>
         {
-            var selected = bitnessCombo.SelectedItem as string;
+            var selected = SelectedComboValue(bitnessCombo);
             string? overrideValue = selected switch
             {
                 "32-bit" => "32",
@@ -1126,17 +1169,17 @@ public partial class DetailPanelBuilder
 
         var apiCombo = new ComboBox
         {
-            ItemsSource = apiDropdownItems,
-            SelectedItem = defaultApiSelection,
+            ItemsSource = LocalizedOptions(apiDropdownItems),
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        SetSelectedComboValue(apiCombo, defaultApiSelection);
         ToolTipService.SetToolTip(apiCombo,
             "Override the detected graphics API for this game.\nAuto uses PE header scanning. Reset Overrides reverts to auto-detection.");
 
         apiCombo.SelectionChanged += (s, ev) =>
         {
-            var selected = apiCombo.SelectedItem as string;
+            var selected = SelectedComboValue(apiCombo);
 
             // Map dropdown label to enum names for persistence
             List<string>? apiEnumNames = selected switch

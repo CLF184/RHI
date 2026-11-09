@@ -68,6 +68,7 @@ public sealed partial class MainWindow : Window
         _dlssEnablerService = App.Services.GetRequiredService<DlssEnablerService>();
         _optiScalerService = App.Services.GetRequiredService<IOptiScalerService>();
         _addonPackService = viewModel.AddonPackServiceInstance;
+        LocalizationService.SetLanguagePreference(ViewModel.Settings.Language);
         InitializeComponent();
         // Hide immediately if starting minimized — must be before any Activate() call
         if (App._startMinimized)
@@ -276,6 +277,8 @@ public sealed partial class MainWindow : Window
         HookUiScaleWheel();
         // Show version in status bar
         StatusBarVersionText.Content = $"v{Services.CrashReporter.AppVersion}";
+        LocalizationService.LanguageChanged += LocalizationService_LanguageChanged;
+        ApplyLocalization();
         // Always show the ✕ clear button on search box
         SearchBox.Loaded += (_, _) => VisualStateManager.GoToState(SearchBox, "ButtonVisible", false);
         ViewModel.InitializeAsync().SafeFireAndForget("MainWindow.Init");
@@ -436,6 +439,9 @@ public sealed partial class MainWindow : Window
             this.AppWindow.Hide();
             return;
         }
+        // Unsubscribe from ViewModel property changes to avoid leaks (Requirement 8.5)
+        ViewModel.PropertyChanged -= OnViewModelChanged;
+        LocalizationService.LanguageChanged -= LocalizationService_LanguageChanged;
 
         _foregroundTarget?.Dispose();
         _lifetime.Cancel();

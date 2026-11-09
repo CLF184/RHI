@@ -16,6 +16,44 @@ public sealed partial class MainWindow
 {
     // ── ViewModel → UI sync ───────────────────────────────────────────────────────
 
+    private void LocalizationService_LanguageChanged(object? sender, EventArgs e)
+        => DispatcherQueue.TryEnqueue(ApplyLocalization);
+
+    private void ApplyLocalization()
+    {
+        if (Content is DependencyObject root)
+            LocalizationService.ApplyTo(root);
+
+        ViewModel.NotifyLocalizationChanged();
+        SyncStatusText();
+        SyncCountText();
+        _settingsHandler.RefreshGlobalUpdateSummary();
+        RebuildCustomFilterChips();
+
+        if (ViewModel.SelectedGame is { } selected)
+        {
+            selected.NotifyAll();
+            PopulateDetailPanel(selected);
+            BuildOverridesPanel(selected);
+        }
+    }
+
+    private void SyncStatusText()
+    {
+        LocalizationService.SetText(LoadingTitle, ViewModel.StatusText);
+        LocalizationService.SetText(LoadingSubtitle, ViewModel.SubStatusText);
+        // StatusBarText is recomputed (and localized) by RefreshStatusBar.
+    }
+
+    private void SyncCountText()
+    {
+        InstalledCountText.Text = LocalizationService.Format("{0} ReShade", ViewModel.InstalledCount);
+        GameCountText.Text = LocalizationService.Format("{0} shown", ViewModel.TotalGames);
+        HiddenCountText.Text = ViewModel.HiddenCount > 0
+            ? LocalizationService.Format("· {0} hidden", ViewModel.HiddenCount)
+            : "";
+    }
+
     private void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -103,22 +141,16 @@ public sealed partial class MainWindow
                     break;
                 case nameof(ViewModel.StatusText):
                 case nameof(ViewModel.SubStatusText):
-                    LoadingTitle.Text    = ViewModel.StatusText;
-                    LoadingSubtitle.Text = ViewModel.SubStatusText;
+                    SyncStatusText();
                     RefreshStatusBar();
                     break;
                 case nameof(ViewModel.CurrentActivityText):
                     RefreshStatusBar();
                     break;
                 case nameof(ViewModel.InstalledCount):
-                    InstalledCountText.Text = $"{ViewModel.InstalledCount} ReShade";
-                    break;
                 case nameof(ViewModel.TotalGames):
-                    GameCountText.Text = $"{ViewModel.TotalGames} shown";
-                    break;
                 case nameof(ViewModel.HiddenCount):
-                    HiddenCountText.Text = ViewModel.HiddenCount > 0
-                        ? $"· {ViewModel.HiddenCount} hidden" : "";
+                    SyncCountText();
                     break;
                 case nameof(ViewModel.FilterMode):
                     RefreshFilterButtonStyles();
@@ -242,6 +274,7 @@ public sealed partial class MainWindow
     {
         ViewModel.SetLastUiAction($"PopulateDetailPanel({card.GameName})");
         _detailPanelBuilder.PopulateDetailPanel(card);
+        LocalizationService.ApplyTo(DetailPanel);
     }
 
     private void DetailCard_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => _detailPanelBuilder.DetailCard_PropertyChanged(sender, e);
@@ -251,6 +284,8 @@ public sealed partial class MainWindow
         ViewModel.SetLastUiAction($"BuildOverridesPanel({card.GameName})");
         _lastBuiltCard = card;
         _detailPanelBuilder.BuildOverridesPanel(card);
+        LocalizationService.ApplyTo(OverridesPanel);
+        LocalizationService.ApplyTo(ManagementPanel);
     }
 
     /// <summary>

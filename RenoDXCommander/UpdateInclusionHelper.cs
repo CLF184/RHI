@@ -49,11 +49,12 @@ public static class UpdateInclusionHelper
                 Text = $"{label}: ",
                 Foreground = UIFactory.Brush(ResourceKeys.TextTertiaryBrush),
             });
-            summaryTb.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            var stateRun = new Microsoft.UI.Xaml.Documents.Run
             {
-                Text = isOn ? "On" : "Off",
                 Foreground = UIFactory.Brush(isOn ? ResourceKeys.AccentGreenBrush : ResourceKeys.AccentRedBrush),
-            });
+            };
+            LocalizationService.SetText(stateRun, isOn ? "On" : "Off");
+            summaryTb.Inlines.Add(stateRun);
             if (i < items.Count - 1)
             {
                 summaryTb.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
@@ -102,6 +103,7 @@ public static class UpdateInclusionHelper
             FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
+        LocalizationService.SetContent(button, "Choose components...");
 
         button.Click += async (s, ev) =>
         {

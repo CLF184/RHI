@@ -34,8 +34,10 @@ OutputBaseFilename=RHI-Setup
 SetupIconFile={#PublishDir}\icon.ico
 SolidCompression=yes
 WizardStyle=modern dynamic
+ShowLanguageDialog=no
 
 [Languages]
+Name: "chinesesimplified"; MessagesFile: "installer\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]

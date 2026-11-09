@@ -88,7 +88,7 @@ public partial class MainViewModel : ObservableObject
         set => _settingsViewModel.LastSeenVersion = value;
     }
 
-    public string UpdateButtonTooltip => "Update ReShade, RenoDX, ReLimiter, Display Commander, OptiScaler, RE Framework, DXVK, Luma and DOF Fix for all games";
+    public string UpdateButtonTooltip => LocalizationService.Text("Update ReShade, RenoDX, ReLimiter, Display Commander, OptiScaler, RE Framework, DXVK, Luma and DOF Fix for all games");
 
     /// <summary>
     /// The global shader picker button is disabled while custom shaders are active.
@@ -1029,4 +1029,16 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Store the background shader-pack download task so InitializeAsync can await it.</summary>
     public void SetShaderPackReadyTask(Task task) => _shaderPackReadyTask = task;
 
+    public void NotifyLocalizationChanged()
+    {
+        OnPropertyChanged(nameof(UpdateButtonTooltip));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(SubStatusText));
+        OnPropertyChanged(nameof(InstalledCount));
+        OnPropertyChanged(nameof(TotalGames));
+        OnPropertyChanged(nameof(HiddenCount));
+
+        foreach (var card in _allCards)
+            card.NotifyAll();
+    }
 }

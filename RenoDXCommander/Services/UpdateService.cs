@@ -19,23 +19,17 @@ public class UpdateService : IUpdateService
         _http = http;
         _etagCache = etagCache;
     }
-    // GitHub API endpoint for the latest release (new per-version tags like "RHI 1.6.7").
-    // This is the primary check — uses /releases/latest to find the newest release.
+    // zh-CN fork: check the Chinese releases instead of upstream. Versioned
+    // releases are published as normal releases (the rolling zhCN-latest dev
+    // build is a prerelease), so /releases/latest always points at a Chinese
+    // version number.
     private const string LatestReleaseApiUrl =
-        "https://api.github.com/repos/RankFTW/RHI/releases/latest";
+        "https://api.github.com/repos/CLF184/RHI/releases/latest";
 
-    // Fallback: legacy tag-based endpoints for older releases.
-    private const string ReleaseApiUrl =
-        "https://api.github.com/repos/RankFTW/RHI/releases/tags/RHI";
-    private const string LegacyReleaseApiUrl =
-        "https://api.github.com/repos/RankFTW/RenoDXChecker/releases/tags/RDXC";
-
-    // GitHub API endpoint for the "RDXC-BETA" release tag.
-    private const string BetaReleaseApiUrl =
-        "https://api.github.com/repos/RankFTW/RenoDXChecker/releases/tags/RDXC-BETA";
-
-    // The asset filenames to look for when updating (checked in order).
-    private static readonly string[] InstallerFileNames = ["RHI-Setup.exe", "RDXC-Setup.exe"];
+    // The asset filenames to look for when downloading. Only used as a
+    // fallback name by DownloadInstallerAsync — the update UI opens the
+    // release page for the portable zip instead of running an installer.
+    private static readonly string[] InstallerFileNames = ["RHI-zhCN.zip"];
 
     /// <summary>
     /// Returns the current app version from the assembly metadata (set via .csproj AssemblyVersion).
@@ -44,83 +38,46 @@ public class UpdateService : IUpdateService
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
 
     /// <summary>
-    /// Silently checks GitHub for a newer release. When <paramref name="betaOptIn"/> is true,
-    /// queries both the stable and beta endpoints and uses <see cref="VersionResolver"/> to
-    /// pick the winning version. Returns the parsed remote version and the download URL for
-    /// the installer asset, or null if no update is available or the check fails.
+    /// Silently checks CLF184/RHI for a newer Chinese release. Returns the parsed
+    /// remote version, the portable zip URL and the release page URL, or null if
+    /// no update is available or the check fails.
     /// </summary>
     public async Task<UpdateInfo?> CheckForUpdateAsync(bool betaOptIn = false)
     {
+        // zh-CN fork: check CLF184/RHI (the Chinese releases), not upstream.
+        // The release asset is a portable zip, so the update dialog opens the
+        // release page instead of trying to run an installer over this build.
         try
         {
-            // Always fetch the stable release — try /releases/latest first, then tag-based fallbacks
-            var stable = await FetchReleaseAsync(LatestReleaseApiUrl).ConfigureAwait(false);
-            if (stable == null)
+            var release = await FetchReleaseAsync(LatestReleaseApiUrl).ConfigureAwait(false);
+            if (release == null)
             {
-                CrashReporter.Log("[UpdateService.CheckForUpdateAsync] /releases/latest returned nothing, trying RHI tag...");
-                stable = await FetchReleaseAsync(ReleaseApiUrl).ConfigureAwait(false);
-            }
-            if (stable == null)
-            {
-                CrashReporter.Log("[UpdateService.CheckForUpdateAsync] RHI tag returned nothing, trying legacy RDXC...");
-                stable = await FetchReleaseAsync(LegacyReleaseApiUrl).ConfigureAwait(false);
+                CrashReporter.Log("[UpdateService.CheckForUpdateAsync] No zh-CN release found");
+                return null;
             }
 
-            // Fetch beta release only when opted in; failure is non-fatal
-            (RdxcVersion version, string downloadUrl)? beta = null;
-            if (betaOptIn)
-            {
-                try
-                {
-                    beta = await FetchReleaseAsync(BetaReleaseApiUrl).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Beta endpoint failed — {ex.Message}");
-                    // Continue with stable-only
-                }
-            }
-
-            // Build the current version as an RdxcVersion for the resolver
             var current = CurrentVersion;
-            var betaNum = current.Revision > 0 ? (int?)current.Revision : null;
-            var currentRdxc = new RdxcVersion(current.Major, current.Minor, current.Build, betaNum);
+            var currentRdxc = new RdxcVersion(current.Major, current.Minor, current.Build,
+                current.Revision > 0 ? current.Revision : null);
+            var remote = release.Version;
 
-            // Use VersionResolver to determine which update (if any) to offer
-            RdxcVersion? winner = VersionResolver.Resolve(
-                currentRdxc,
-                stable?.version,
-                beta?.version);
-
-            if (winner == null)
+            if (remote.Major < currentRdxc.Major
+                || (remote.Major == currentRdxc.Major && remote.Minor < currentRdxc.Minor)
+                || (remote.Major == currentRdxc.Major && remote.Minor == currentRdxc.Minor && remote.Build <= currentRdxc.Build))
             {
-                CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Up to date (local={currentRdxc.ToDisplayString()})");
+                CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Up to date (local={currentRdxc.ToDisplayString()}, remote={remote.ToDisplayString()})");
                 return null;
             }
 
-            // Determine the download URL from the winning source
-            string? winnerDownloadUrl = null;
-            if (stable.HasValue && winner.Value == stable.Value.version)
-                winnerDownloadUrl = stable.Value.downloadUrl;
-            else if (beta.HasValue && winner.Value == beta.Value.version)
-                winnerDownloadUrl = beta.Value.downloadUrl;
-
-            if (string.IsNullOrEmpty(winnerDownloadUrl))
-            {
-                CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Winner {winner.Value.ToDisplayString()} has no download URL");
-                return null;
-            }
-
-            var cmp = new Version(current.Major, current.Minor, current.Build);
-            var rmt = new Version(winner.Value.Major, winner.Value.Minor, winner.Value.Build);
-
-            CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Update available {currentRdxc.ToDisplayString()} → {winner.Value.ToDisplayString()}");
+            CrashReporter.Log($"[UpdateService.CheckForUpdateAsync] Update available {currentRdxc.ToDisplayString()} → {remote.ToDisplayString()} ({release.PageUrl})");
             return new UpdateInfo
             {
-                CurrentVersion = cmp,
-                RemoteVersion  = rmt,
-                DownloadUrl    = winnerDownloadUrl,
-                DisplayVersion = winner.Value.ToDisplayString(),
+                CurrentVersion = new Version(current.Major, current.Minor, current.Build),
+                RemoteVersion  = new Version(remote.Major, remote.Minor, remote.Build),
+                DownloadUrl    = release.DownloadUrl,
+                DisplayVersion = remote.ToDisplayString(),
+                ReleasePageUrl = release.PageUrl,
+                IsPortableZip  = true,
             };
         }
         catch (Exception ex)
@@ -132,12 +89,12 @@ public class UpdateService : IUpdateService
     }
 
     /// <summary>
-    /// Fetches a single GitHub release endpoint, parses the version with <see cref="RdxcVersion.TryParse"/>,
-    /// and extracts the installer download URL. Returns null if the endpoint fails or the version cannot be parsed.
+    /// Fetches the latest zh-CN release, parses its version, and extracts the
+    /// portable zip asset URL and the release page URL.
     /// </summary>
-    private async Task<(RdxcVersion version, string downloadUrl)?> FetchReleaseAsync(string apiUrl)
+    private async Task<ForkRelease?> FetchReleaseAsync(string apiUrl)
     {
-        var json = await _etagCache.GetWithETagAsync(_http, apiUrl, $"RHI/{CurrentVersion}").ConfigureAwait(false);
+        var json = await _etagCache.GetWithETagAsync(_http, apiUrl, $"RHI-zhCN/{CurrentVersion}").ConfigureAwait(false);
         if (json == null)
         {
             CrashReporter.Log($"[UpdateService.FetchReleaseAsync] GitHub API returned error for {apiUrl}");
@@ -158,34 +115,38 @@ public class UpdateService : IUpdateService
             return null;
         }
 
-        // Find the installer asset download URL (check RHI-Setup.exe first, then legacy RDXC)
+        // The Chinese release ships RHI-zhCN-<version>-win-x64.zip.
         string? downloadUrl = null;
         if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
         {
-            foreach (var installerName in InstallerFileNames)
+            foreach (var asset in assets.EnumerateArray())
             {
-                foreach (var asset in assets.EnumerateArray())
+                var assetName = asset.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (!string.IsNullOrEmpty(assetName)
+                    && assetName.StartsWith("RHI-zhCN-", StringComparison.OrdinalIgnoreCase)
+                    && assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    var assetName = asset.TryGetProperty("name", out var n) ? n.GetString() : null;
-                    if (string.Equals(assetName, installerName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        downloadUrl = asset.TryGetProperty("browser_download_url", out var url)
-                            ? url.GetString() : null;
-                        break;
-                    }
+                    downloadUrl = asset.TryGetProperty("browser_download_url", out var url)
+                        ? url.GetString() : null;
+                    if (!string.IsNullOrEmpty(downloadUrl)) break;
                 }
-                if (!string.IsNullOrEmpty(downloadUrl)) break;
             }
         }
 
         if (string.IsNullOrEmpty(downloadUrl))
         {
-            CrashReporter.Log($"[UpdateService.FetchReleaseAsync] Version {version.ToDisplayString()} found but no installer asset (tried {string.Join(", ", InstallerFileNames)})");
+            CrashReporter.Log($"[UpdateService.FetchReleaseAsync] Version {version.ToDisplayString()} found but no RHI-zhCN-*.zip asset");
             return null;
         }
 
-        return (version, downloadUrl);
+        var pageUrl = root.TryGetProperty("html_url", out var html) ? html.GetString() : null;
+        if (string.IsNullOrEmpty(pageUrl))
+            pageUrl = $"https://github.com/CLF184/RHI/releases/tag/{tagName}";
+
+        return new ForkRelease(version, downloadUrl, pageUrl);
     }
+
+    private sealed record ForkRelease(RdxcVersion Version, string DownloadUrl, string PageUrl);
 
     /// <summary>
     /// Downloads the installer to a temp file and returns the file path.
@@ -291,6 +252,12 @@ public class UpdateInfo
     public required Version RemoteVersion  { get; init; }
     public required string  DownloadUrl    { get; init; }
     public string? DisplayVersion { get; init; }
+
+    /// <summary>zh-CN fork: release page to open instead of running an installer.</summary>
+    public string? ReleasePageUrl { get; init; }
+
+    /// <summary>zh-CN fork: the release ships a portable zip, not an installer.</summary>
+    public bool IsPortableZip { get; init; }
 }
 
 /// <summary>

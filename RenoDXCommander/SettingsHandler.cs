@@ -54,7 +54,8 @@ public partial class SettingsHandler
             // Sync toggle state with ViewModel
             // (without triggering the change handler, which confirms and redeploys shaders)
             SyncShaderModeCombo();
-            _window.AboutVersionText.Text = $"v{CrashReporter.AppVersion}  ·  Simplified PC Gaming by RankFTW";
+            SyncLanguageCombo();
+            LocalizationService.SetText(_window.AboutVersionText, $"v{CrashReporter.AppVersion}  ·  Simplified PC Gaming by RankFTW");
             // Show installed Windows App Runtime version
             // Populate addon watch folder textbox
             _window.AddonWatchFolderBox.Text = ViewModel.Settings.AddonWatchFolder;
