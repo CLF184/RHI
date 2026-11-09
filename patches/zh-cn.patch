@@ -1,9 +1,9 @@
 diff --git a/RenoDXCommander.Tests/LocalizationServiceTests.cs b/RenoDXCommander.Tests/LocalizationServiceTests.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..e1b19a5ecac298dd0fce6b3f6bae0091e1de8720
+index 0000000000000000000000000000000000000000..65e52f0baae345181126e45ccf1b4e9623210bf9
 --- /dev/null
 +++ b/RenoDXCommander.Tests/LocalizationServiceTests.cs
-@@ -0,0 +1,222 @@
+@@ -0,0 +1,223 @@
 +using System.Globalization;
 +using RenoDXCommander.Services;
 +using Xunit;
@@ -219,6 +219,7 @@ index 0000000000000000000000000000000000000000..e1b19a5ecac298dd0fce6b3f6bae0091
 +            Assert.Equal("已更新 3 个 OptiScaler.ini 文件。", LocalizationService.Text("Updated 3 OptiScaler.ini file(s)."));
 +            Assert.Equal("已安装为：dxgi.dll\n点击打开 GitHub 发布页", LocalizationService.Text("Installed as: dxgi.dll\nClick to open GitHub releases"));
 +            Assert.Equal("已保存：显示器 Dell = 50%", LocalizationService.Text("Saved: Display Dell = 50%"));
++            Assert.Equal("·  MIT 许可证", LocalizationService.Text("·  MIT Licence"));
 +        }
 +        finally
 +        {
@@ -1273,10 +1274,10 @@ index 4d82a6a467e8d1185ab12aa796782fec9d33c0cf..ec6c5c2205750aa4e11bfe02fb00dd0e
  </Project>
 diff --git a/RenoDXCommander/Services/LocalizationService.cs b/RenoDXCommander/Services/LocalizationService.cs
 new file mode 100644
-index 0000000000000000000000000000000000000000..a553bf48df309f818d34233e759fbb1b5c4d816e
+index 0000000000000000000000000000000000000000..1eaa37f7d63e60f6311306aacb8941f9d09a1601
 --- /dev/null
 +++ b/RenoDXCommander/Services/LocalizationService.cs
-@@ -0,0 +1,2852 @@
+@@ -0,0 +1,2857 @@
 +using System.Globalization;
 +using System.Text.RegularExpressions;
 +using Microsoft.UI.Xaml;
@@ -1401,6 +1402,11 @@ index 0000000000000000000000000000000000000000..a553bf48df309f818d34233e759fbb1b
 +
 +        var normalized = NormalizeSourceText(english);
 +        if (SimplifiedChinese.TryGetValue(normalized, out var translated))
++            return PreserveEdgeWhitespace(english, translated);
++
++        // Some source keys intentionally keep double spaces or newlines. The
++        // normalized lookup above cannot match them, so fall back to the raw key.
++        if (SimplifiedChinese.TryGetValue(english, out translated))
 +            return PreserveEdgeWhitespace(english, translated);
 +
 +        return TranslateDynamicEnglish(english);
@@ -3552,11 +3558,11 @@ index 0000000000000000000000000000000000000000..a553bf48df309f818d34233e759fbb1b
 +        ["github.com/praydog/REFramework-nightly"] = "github.com/praydog/REFramework-nightly",
 +        ["github.com/zzzprojects/html-agility-pack"] = "github.com/zzzprojects/html-agility-pack",
 +        ["reshade.me · github.com/crosire/reshade"] = "reshade.me · github.com/crosire/reshade",
-+        ["· BSD 3-Clause Licence"] = "· BSD 3-Clause Licence",
-+        ["· LGPL + BSD 3-Clause"] = "· LGPL + BSD 3-Clause",
-+        ["· MIT Licence"] = "· MIT Licence",
-+        ["· Source-available"] = "· 源码可见",
-+        ["· Zlib Licence"] = "· Zlib Licence",
++        ["· BSD 3-Clause Licence"] = "·  BSD 3-Clause 许可证",
++        ["· LGPL + BSD 3-Clause"] = "·  LGPL + BSD 3-Clause 许可证",
++        ["· MIT Licence"] = "·  MIT 许可证",
++        ["· Source-available"] = "·  源码公开",
++        ["· Zlib Licence"] = "·  Zlib 许可证",
 +        ["— Admin required"] = "— 需要管理员权限",
 +        ["—— Recommended ——"] = "—— 推荐 ——",
 +        ["——— HDR Mods ———"] = "——— HDR 模组 ———",
