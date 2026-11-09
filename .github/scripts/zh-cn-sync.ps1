@@ -148,3 +148,7 @@ if ($action -eq 'none') {
 } else {
     Write-Host "Plan: action=$action target=$target sha=$targetSha versionTag=$versionTag releaseTag=$releaseTag"
 }
+
+# gh release view intentionally returns 1 when a release does not exist; do not
+# let that become the script's exit code.
+exit 0

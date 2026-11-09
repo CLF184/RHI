@@ -60,3 +60,4 @@ Settings → Language → 简体中文（默认跟随系统语言）。
 
 $notes | Out-File -FilePath release-notes.md -Encoding utf8
 Write-Host "Wrote release-notes.md ($Action, $Version)"
+exit 0

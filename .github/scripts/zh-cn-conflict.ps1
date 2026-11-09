@@ -86,3 +86,5 @@ if ($issueNumber -and $issueNumber -ne 'null') {
         '[zh-CN sync] 汉化补丁应用冲突，需要人工处理', '--label', 'zh-cn-sync', '--body', $body)
     Write-Host "Created issue: $($created.Text)"
 }
+
+exit 0
