@@ -1,3 +1,21 @@
+> ## RHI 简体中文版（非官方分支）
+>
+> 本仓库是 [RankFTW/RHI](https://github.com/RankFTW/RHI) 的自动汉化分支：默认分支只放
+> `patches/zh-cn.patch` 和 CI。上游发布新 release 或推送 main 后，GitHub Actions 会把补丁
+> 3-way 应用到对应源码、构建并发布简体中文版。
+>
+> - **下载**：[Releases](https://github.com/CLF184/RHI/releases) — 正式版 `zhCN-RHI-<版本>`，滚动开发版 `zhCN-latest`
+> - **全新安装**：整目录解压后运行 `RHI.exe`，不要只拷贝 exe
+> - **已装官方版**：退出 RHI，把解压出的全部文件覆盖进安装目录即可，设置与游戏列表保留
+> - **切换语言**：Settings → Language → 简体中文；默认跟随系统
+> - **实现方式**：单个 `patches/zh-cn.patch`（新增 `LocalizationService` 运行时词表 + 少量挂接点），其余代码保持上游原样
+> - **应用内更新**：检查更新指向本仓库 Releases，有新版本时打开下载页面（不会自动覆盖）
+> - **许可**：GPL-3.0，源码与修改全部开放
+>
+> 实现细节、已知未翻译区域与构建方式见 [ZH-CN-BUILD.md](ZH-CN-BUILD.md)。
+
+---
+
 # RHI — ReShade HDR Installer
 
 **HDR mods, ReShade, DLSS and NVIDIA driver settings for your whole PC game library, from one window.**
